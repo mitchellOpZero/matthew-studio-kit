@@ -25,6 +25,8 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
 4. Add one dated line to that style's `STYLE.md` under "Changes Matthew asked for", e.g. `2026-10-28: captions stacked on two lines`.
 5. Preview: `bin/kit style preview <style>` (3 s of his last clip, live in Studio, plus a still). **Look at the still yourself first.** The test only proves it draws, not that it looks right: check that the text is the size you meant, the colours are right, and nothing covers his face or runs off the edge. Fix anything wrong, then give him the Studio link.
 6. Undo any time: `bin/kit style versions <style>`, then `bin/kit style restore <style> <version>`.
+   - **"Undo that" / "go back" in a new chat** (you don't see the change above): don't ask what to undo. Take his style (`matthew` unless he names another, or the style he last edited: newest `my-styles/*/versions/`), read the newest dated line under "Changes Matthew asked for" in its STYLE.md, restore the newest version (`bin/kit style versions <style>`, last line), and tell him in one line what you undid ("Undid: captions 10% smaller, back to 0.093"). Add a dated "undid ..." line to STYLE.md.
+   - "Go back to how it was yesterday": the newest version saved before today.
 
 ## Settings (style.json); combine freely
 Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0.7}`. Dotted keys reach inside: `punch.zoom_tight=1.25`.
