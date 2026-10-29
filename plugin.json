@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "matthew-studio-kit",
+  "version": "2.0.0",
+  "description": "Edit raw talking-head clips into finished Shorts and long-form videos in saved styles. Watch the whole edit live in HyperFrames Studio before anything renders; b-roll, pictures and graphics from your Notion library; QA-gated.",
+  "license": "LicenseRef-Proprietary",
+  "keywords": [
+    "video",
+    "shorts",
+    "long-form",
+    "captions",
+    "hyperframes"
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/setup/SKILL.md",
+      "interface": {
+        "displayName": "Matthew Studio Kit",
+        "shortDescription": "Shorts and long-form, previewed live before they render.",
+        "longDescription": "Draft, watch the whole edit live in HyperFrames Studio, change anything by asking or by hand, then render once and QA. Your look lives in a style you change by asking; old versions are kept. B-roll, pictures and sound effects come from your Notion library; graphics from HyperFrames' block library.",
+        "developerName": "Matthew Studio Kit",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Edit the clip in inbox with the matthew style.",
+          "Make a 15 second Short from this clip.",
+          "Make my captions a little smaller.",
+          "Make a long-form video from the clip in inbox."
+        ]
+      }
+    }
+  }
+}

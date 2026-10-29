@@ -1,0 +1,5 @@
+#!/bin/sh
+# Run the kit from anywhere: bin/kit <command> ...
+KIT="$(cd "$(dirname "$0")/.." && pwd)"
+PY="$KIT/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+exec "$PY" "$KIT/engine/kit.py" "$@"

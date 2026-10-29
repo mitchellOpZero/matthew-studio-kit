@@ -1,0 +1,7 @@
+{
+  "name": "picture",
+  "description": "A still (dating-app screenshot, photo, text message) on a white rounded card with a shadow; pops in, holds, cut out. Pictures come from his library (library/pictures/).",
+  "plan": "overlays: {\"picture\": \"library/pictures/<file>.png\", \"at\": s, \"dur\": s, \"x\": 540, \"y\": 700, \"w\": 620, \"round\": 28}. x/y = card centre and w = card width, in px of a 1080-wide frame. Keep it off his face: above his head or beside it on long-form",
+  "test": {"overlays": [{"picture": "assets/logos/Instagram_Glyph_Gradient.png", "at": 0.5, "dur": 2.0, "x": 540, "y": 520, "w": 420}]},
+  "test_at": [0.55, 1.5]
+}
