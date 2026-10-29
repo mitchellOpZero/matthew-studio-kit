@@ -311,6 +311,7 @@ def check(now=False):
         else:
             log(f"{comp}: update passed its test ({sig(versions)}); it switches in at the next edit")
             ready[comp] = {"versions": versions, "tested": time.strftime("%Y-%m-%d %H:%M")}
+    os.makedirs(NEXT, exist_ok=True)
     json.dump(ready, open(os.path.join(NEXT, "READY.json"), "w"), indent=2)
     st["last_check"] = time.time(); save_state(st)
     return 0
