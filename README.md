@@ -20,7 +20,7 @@ gh auth login && gh auth setup-git          # sign in to GitHub once
 git clone https://github.com/mitchellOpZero/matthew-studio-kit ~/ColdApproach/matthew-studio-kit
 cd ~/ColdApproach/matthew-studio-kit
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-npx --yes hyperframes@0.8.214 browser ensure   # HyperFrames + its Chrome (newer versions follow on their own)
+bin/kit prepare                                # HyperFrames + its Chrome (newer versions follow on their own)
 bin/kit doctor                                 # every line OK, shows the kit version
 bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the old kit
 # open the folder in the Codex app and trust it (turns on .codex/rules/kit.rules, which previews and renders need)

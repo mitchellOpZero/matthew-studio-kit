@@ -66,6 +66,13 @@ def env(**extra):
     for prefix in ("/opt/homebrew/opt/ffmpeg-full/bin", "/usr/local/opt/ffmpeg-full/bin"):
         if os.path.exists(os.path.join(prefix, "ffmpeg")): e["PATH"] = prefix + os.pathsep + e["PATH"]; break
     e["KIT_NO_AUTO_UPDATE"] = "1"
+    try:   # the same sandbox-safe home HyperFrames gets everywhere else (render_hf.env)
+        sys.path.insert(0, ENGINE); import render_hf
+        h = render_hf.env()
+        for k in ("HOME", "HYPERFRAMES_BROWSER_PATH", "HYPERFRAMES_SKIP_SKILLS"):
+            if k in h: e[k] = h[k]
+    except Exception:
+        pass
     e.update(extra)
     return e
 

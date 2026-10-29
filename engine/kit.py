@@ -4,6 +4,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
 
   kit version                                  the kit's version and exact commit
   kit doctor                                   check ffmpeg, Python packages, Node + HyperFrames, fonts, the speech model
+  kit prepare                                  first run: fetch the tested HyperFrames and its Chrome (needs internet once)
   kit update                                   pull the newest kit, then bring HyperFrames and the Python packages up to date
   kit deps status | check | rollback           the outside libraries: they update on their own once a day, tested first (engine/deps.py)
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
@@ -81,13 +82,33 @@ def die(msg: str, code: int = 1):
     sys.exit(code)
 
 
+MODEL = "models--Systran--faster-whisper-small.en"
+
+
+def speech_home() -> Path | None:
+    """Where the speech model lives: the usual ~/.cache/huggingface, unless that can't be written (Codex's sandbox) and
+    the model isn't there yet; then inside the kit."""
+    home = Path.home() / ".cache" / "huggingface"
+    if (home / "hub" / MODEL).exists():
+        return None
+    try:
+        (home / "hub").mkdir(parents=True, exist_ok=True)
+        t = home / "hub" / f".kit-write-test-{os.getpid()}"; t.touch(); t.unlink()
+        return None
+    except OSError:
+        return KIT / ".cache" / "huggingface"
+
+
 def env() -> dict:
-    """Homebrew's ffmpeg-full first: the build the kit is tested with."""
+    """Homebrew's ffmpeg-full first: the build the kit is tested with. The speech model's folder (speech_home)."""
     e = dict(os.environ)
     for prefix in ("/opt/homebrew/opt/ffmpeg-full/bin", "/usr/local/opt/ffmpeg-full/bin"):
         if Path(prefix, "ffmpeg").exists():
             e["PATH"] = prefix + os.pathsep + e.get("PATH", "")
             break
+    sh = speech_home()
+    if sh and "HF_HOME" not in e:
+        e["HF_HOME"] = os.environ["HF_HOME"] = str(sh)   # also for the listener that runs in this process
     return e
 
 
@@ -189,15 +210,15 @@ def cmd_doctor(a) -> int:
     want = json.load(open(hfr.FLOOR))["version"]
     got = subprocess.run(hfr.hf() + ["--version"], capture_output=True, text=True, env=hfr.env(), timeout=300).stdout.strip() if nd else ""
     line(bool(got), f"HyperFrames {got or 'missing'} (kit tested {want}; newer ones switch in on their own after passing a test)",
-         f"cd {KIT} && bin/kit update   (needs internet once)")
+         f"cd {KIT} && bin/kit prepare   (needs internet once)")
     br = subprocess.run(hfr.hf() + ["browser", "path"], capture_output=True, text=True, env=hfr.env(), timeout=300).stdout.strip() if got else ""
-    line(bool(br) and Path(br.splitlines()[-1]).exists(), "HyperFrames' Chrome (preview and render)", f"cd {KIT} && npx --yes hyperframes@{want} browser ensure")
+    line(bool(br) and Path(br.splitlines()[-1]).exists(), "HyperFrames' Chrome (preview and render)", f"cd {KIT} && bin/kit prepare   (needs internet once)")
     line((ENGINE / "vendor/gsap.min.js").exists(), "animation library (engine/vendor/gsap.min.js)", "re-clone the kit")
     line((KIT / ".codex/rules/kit.rules").exists(), "Codex rule that lets previews and renders start Chrome (.codex/rules/kit.rules)", "re-clone the kit")
     line((KIT / "assets/fonts/Montserrat-ExtraBold.ttf").exists(), "caption font", "re-clone the kit")
     line((STYLES / "matthew/style.json").exists(), "default style 'matthew'", "re-clone the kit")
-    hf = Path.home() / ".cache/huggingface/hub/models--Systran--faster-whisper-small.en"
-    line(hf.exists(), "speech model small.en (464 MB)", "it downloads on the first transcribe; needs internet once")
+    sm = [p / "hub" / MODEL for p in (Path.home() / ".cache/huggingface", KIT / ".cache/huggingface")]
+    line(any(p.exists() for p in sm), "speech model small.en (464 MB)", "it downloads on the first transcribe; needs internet once")
     others = other_skills()
     if others:
         print(f"NOTE {len(others)} other video skill(s) on this Mac that Codex can see. The kit ignores them (AGENTS.md), "
@@ -206,6 +227,16 @@ def cmd_doctor(a) -> int:
             print(f"       {o}")
     print("Ready to edit." if ok else "Fix the lines marked FIX, then run kit doctor again.")
     return 0 if ok else 1
+
+
+def cmd_prepare(a) -> int:
+    """First run: fetch the tested HyperFrames and its Chrome (once, about 200 MB)."""
+    hfr = hfm()
+    for args in (["--version"], ["browser", "ensure"]):
+        if subprocess.call(hfr.hf() + args, env=hfr.env()) != 0:
+            die(f"couldn't get HyperFrames ({' '.join(args)}). It needs the internet once.")
+    print(f"HyperFrames {hfr.hf_version()} and its Chrome are ready.")
+    return 0
 
 
 def cmd_update(a) -> int:
@@ -683,7 +714,8 @@ def style_import(old: Path) -> int:
     templates (index.tsx) can't come along; they're listed so they can be rebuilt as library blocks."""
     src = old / "my-styles"
     if not src.is_dir():
-        die(f"no my-styles/ folder in {old}")
+        print(f"nothing to import: {old} has no saved styles (my-styles/)")
+        return 0
     for d in sorted(p for p in src.iterdir() if (p / "style.json").exists()):
         dst = USER_STYLES / d.name
         if dst.exists():
@@ -885,17 +917,17 @@ def main() -> int:
     b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
     lb = sp.add_parser("library"); lb.add_argument("action", choices=["list", "add", "sync", "connect"]); lb.add_argument("args", nargs="*")
     lb.add_argument("--type", choices=["broll", "picture", "sfx"]); lb.add_argument("--name"); lb.add_argument("--tags")
-    sp.add_parser("update")
+    sp.add_parser("update"); sp.add_parser("prepare")
     u = sp.add_parser("deps"); u.add_argument("action", choices=["status", "check", "rollback"])
     a = ap.parse_args()
-    if a.cmd not in ("version", "deps", "update"):
+    if a.cmd not in ("version", "deps", "update", "prepare"):
         busy = KIT / ".cache" / "deps" / "busy" / str(os.getpid())   # a library switch waits while a command is running
         busy.parent.mkdir(parents=True, exist_ok=True); busy.touch()
         atexit.register(lambda: busy.unlink(missing_ok=True))
         if a.cmd in ("draft", "doctor"):   # a tested update switches in only at the start of a new edit, never mid-fix
             deps.apply()
         deps.auto()
-    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "qa": cmd_qa,
+    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "qa": cmd_qa,
             "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library}[a.cmd](a)
 
 

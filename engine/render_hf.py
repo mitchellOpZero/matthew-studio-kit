@@ -38,9 +38,32 @@ def hf():
     return ["npx", "--yes", f"hyperframes@{hf_version()}"]
 
 
+def writable(d):
+    """Really writable (Codex's sandbox lets the kit write only inside the kit folder, whatever os.access says)."""
+    try:
+        os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, f".kit-write-test-{os.getpid()}")
+        open(p, "w").close(); os.remove(p)
+        return True
+    except OSError:
+        return False
+
+
+_ENV = None
 def env():
-    e = dict(os.environ); e["HYPERFRAMES_SKIP_SKILLS"] = "1"; e.setdefault("HF_NO_TELEMETRY", "1")
-    return e
+    """HyperFrames keeps npm's cache, its Chrome, fonts and preview state under the home folder. Inside a sandbox that
+    can't be written, it gets a home inside the kit (.cache/home) instead, and uses the Chrome already installed if any."""
+    global _ENV
+    if _ENV is None:
+        e = dict(os.environ); e["HYPERFRAMES_SKIP_SKILLS"] = "1"; e.setdefault("HF_NO_TELEMETRY", "1")
+        home = os.path.expanduser("~")
+        if not all(writable(os.path.join(home, d)) for d in (".npm", os.path.join(".cache", "hyperframes"), os.path.join(".local", "state", "hyperframes"))):
+            chrome = sorted(glob.glob(os.path.join(home, ".cache", "hyperframes", "chrome", "**", "chrome-headless-shell"), recursive=True))
+            chrome = [c for c in chrome if os.path.isfile(c) and os.access(c, os.X_OK)]
+            if chrome and "HYPERFRAMES_BROWSER_PATH" not in e: e["HYPERFRAMES_BROWSER_PATH"] = chrome[-1]
+            e["HOME"] = os.path.join(KIT, ".cache", "home"); os.makedirs(e["HOME"], exist_ok=True)
+        _ENV = e
+    return dict(_ENV)
 
 
 def project_dir(job_name):
