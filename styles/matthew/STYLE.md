@@ -10,4 +10,4 @@ Built from what Matthew asked for: his crimson captions, 1.5x bigger, keywords o
 - Never: graphics that just repeat his last few words; anything under the top or bottom app UI; music.
 
 ## Changes Matthew asked for
-(Codex adds a dated line here each time he changes this style.)
+(A dated line is added here each time he changes this style; undo reads the newest one.)

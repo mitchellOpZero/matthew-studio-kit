@@ -621,6 +621,31 @@ def restore(name: str, version: str) -> None:
         (shutil.copytree if item.is_dir() else shutil.copy2)(item, base / item.name)
 
 
+CHANGES = "## Changes Matthew asked for"
+
+
+def log_change(name: str, text: str) -> None:
+    """A dated line under "Changes Matthew asked for" in the style's STYLE.md (undo in a new chat reads the newest one)."""
+    p = own_style(name) / "STYLE.md"
+    s = p.read_text() if p.exists() else ""
+    if CHANGES not in s:
+        s = s.rstrip("\n") + f"\n\n{CHANGES}\n"
+    p.write_text(s.rstrip("\n") + f"\n{dt.date.today()}: {text}\n")
+
+
+def last_change(name: str) -> str:
+    p = style_dir(name) / "STYLE.md"
+    s = p.read_text().split(CHANGES, 1) if p.exists() else []
+    lines = [x.strip() for x in (s[1].splitlines() if len(s) > 1 else []) if re.match(r"\d{4}-\d{2}-\d{2}:", x.strip())]
+    return lines[-1] if lines else ""
+
+
+def get_dotted(d: dict, key: str):
+    for k in key.split("."):
+        d = d.get(k) if isinstance(d, dict) else None
+    return d
+
+
 def style_test(name: str, clip: str | None = None) -> tuple[bool, str]:
     """A save only stands if the style renders: 3 s preview, plus a still."""
     st = json.load(open(style_dir(name) / "style.json"))
@@ -667,8 +692,11 @@ def cmd_style(a) -> int:
     if a.action == "restore":
         if not a.pairs:
             die(f"say which version: kit style versions {a.name}")
+        undone = last_change(a.name)
         restore(a.name, a.pairs[0])
-        print(f"restored {a.name} to {a.pairs[0]} (the state before this restore is saved as a version too)")
+        log_change(a.name, f"undid \"{undone.split(': ', 1)[-1]}\" (back to version {a.pairs[0]})" if undone else f"went back to version {a.pairs[0]}")
+        print(f"restored {a.name} to {a.pairs[0]} (the state before this restore is saved as a version too)"
+              + (f"\nundid: {undone}" if undone else ""))
         return 0
     if a.action == "snapshot":
         print(f"saved version: {snapshot(a.name).relative_to(KIT)}  (undo: kit style restore {a.name} <version>)")
@@ -703,13 +731,16 @@ def cmd_style(a) -> int:
             shutil.copytree(folder, USER_STYLES / target, ignore=shutil.ignore_patterns("versions", "out", "__pycache__"))
             before = None
         else:
+            fresh = not (USER_STYLES / target / "style.json").exists()   # first save over a built-in style copies it here
             before = snapshot(target)
         tpath = own_style(target) / "style.json"
         st = json.load(open(tpath))
+        was = {}
         for pair in a.pairs:
             if "=" not in pair:
                 die(f"use key=value (got {pair!r})")
             k, v = pair.split("=", 1)
+            was[k.strip()] = get_dotted(st, k.strip())
             set_dotted(st, k.strip(), parse_value(v.strip()))
         if a.as_name:
             st["_about"] = f"Made from {a.name} on {dt.date.today()}. " + st.get("_about", "")
@@ -719,11 +750,13 @@ def cmd_style(a) -> int:
         except Exception as e:   # whatever goes wrong, the style goes back to how it was
             ok, msg = False, f"{type(e).__name__}: {e}"
         if not ok:
-            if before:
+            if before and not fresh:
                 restore(target, before.name)
-            else:
+            else:   # a new style, or the copy of a built-in one this save made: gone again, so updates still reach it
                 shutil.rmtree(USER_STYLES / target)
             die(f"not saved, the style didn't render: {msg}. Nothing changed.")
+        what = ", ".join(f"{k} {was[k]!r} -> {get_dotted(st, k)!r}" for k in was)
+        log_change(target, (f"made from {a.name}; " if a.as_name else "") + (what or "saved"))
         print(f"saved style {target}" + (f" (previous version: {before.name})" if before else "") + f"\nstill: {WORK / ('_preview-' + target) / 'out' / ('preview-' + target + '.jpg')}"
               + f"\nwatch it: kit style preview {target}")
         return 0

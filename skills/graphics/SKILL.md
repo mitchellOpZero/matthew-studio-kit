@@ -9,7 +9,7 @@ Three kinds, all drawn by HyperFrames on the same timeline as his video, all vis
 
 ## 1. The kit's own graphics
 `bin/kit graphics list`:
-- **logo_pop**: an app logo on a white tile. `kit draft` places YouTube/Instagram ones itself when the style has `logos.enabled`. More logos: put the PNG in `assets/logos/`.
+- **logo_pop**: an app logo on a white tile. `kit draft` places YouTube/Instagram ones itself when the style has `logos.enabled`. More logos: put the brand's own PNG in `assets/logos/` (rules in `assets/logos/README.md`).
 - **picture**: a still from his library on a white rounded card (skills/library).
 - **text_card**: a short line on his highlight colour, near the top. Only for a line that adds something he doesn't say word for word.
 Each manifest's `plan` line shows exactly what to put in `edl.json`. `bin/kit graphics test <name>` must print OK; look at the still it prints.
