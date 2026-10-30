@@ -56,6 +56,10 @@ def env():
     global _ENV
     if _ENV is None:
         e = dict(os.environ); e["HYPERFRAMES_SKIP_SKILLS"] = "1"; e.setdefault("HF_NO_TELEMETRY", "1")
+        # npx would ask the npm registry about the pinned version every call; with no internet (Codex's sandbox) that
+        # hangs until a timeout. The version is pinned, so the copy in npm's cache is the right one; a version that
+        # isn't cached yet is still downloaded.
+        e.setdefault("npm_config_prefer_offline", "true")
         home = os.path.expanduser("~")
         if not all(writable(os.path.join(home, d)) for d in (".npm", os.path.join(".cache", "hyperframes"), os.path.join(".local", "state", "hyperframes"))):
             chrome = sorted(glob.glob(os.path.join(home, ".cache", "hyperframes", "chrome", "**", "chrome-headless-shell"), recursive=True))
