@@ -1,7 +1,7 @@
 # Your studio kit: how to use it
 
-Open **Codex** in `~/ColdApproach/matthew-studio-kit` and just ask. Codex does the editing. You never need the terminal
-(except once, to connect Notion).
+Open **Codex** in `~/ColdApproach/matthew-studio-kit` and just ask. Codex does the editing. You only need Terminal for a
+few one-time steps (installing Homebrew, logging in to GitHub, connecting Notion); Codex tells you exactly what to type.
 
 ## Edit a video
 1. Drop your raw clip in the `inbox` folder.
@@ -9,7 +9,7 @@ Open **Codex** in `~/ColdApproach/matthew-studio-kit` and just ask. Codex does t
    - "Edit the clip in inbox with my style." This cleans up the full clip.
    - "Make a 15 second Short from the clip in inbox." Codex picks the strongest 15 seconds.
    - "Make a long-form video from the clip in inbox." A 16:9 YouTube edit.
-   - "$episode" edits every clip in inbox.
+   - "$episode" edits every clip in inbox. Clips it finishes move to `inbox/edited/`, so it never edits them twice.
 3. Codex gives you a **Studio link**. Click it: your edit plays with your voice, captions, zooms and graphics. Nothing
    has been rendered yet, so changes are instant.
 4. Tell Codex what to change ("cut the first sentence", "make 'confidence' red", "put the Hinge screenshot when I say
@@ -31,7 +31,8 @@ Codex asks: **"Save over your style, or save as a new style?"** Then it shows yo
 - **"Go back to how it was yesterday"**
 
 ## A new look from a video you like
-Send Codex the reel and say **"Make a style from this."** It copies the captions and zoom pacing into a new style. Then use it: "Edit this with the <name> style."
+Save the reel as a video file (download it, or screen-record it; a link won't work), drag the file into the Codex chat
+and say **"Make a style from this."** It copies the captions and zoom pacing into a new style. Then use it: "Edit this with the <name> style."
 
 ## Your library (Notion)
 Your b-roll, pictures (Hinge and text screenshots, photos) and sound effects live in your Notion library database.

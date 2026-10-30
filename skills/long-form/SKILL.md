@@ -32,7 +32,7 @@ Long-form needs something to look at every 10-20 s besides his face. From his li
 - B-roll never freezes: `from` + `dur` must fit inside the clip (`bin/kit library list` shows clips; check the clip's length).
 
 ## 4. Preview, notes, render
-`bin/kit preview <job>`, then his notes, then `bin/kit render <job>` (skills/edit-short steps 4-6). A long render takes about the video's length again (a 10-minute video renders in roughly 8-12 minutes, then QA). Tell him the ETA before you start it, and don't stop the session while it runs.
+`bin/kit preview <job>`, then his notes, then `bin/kit render <job>` (skills/edit-short steps 4-6). A long render takes about the video's length again (a 10-minute video renders in roughly 8-12 minutes, then QA). Tell him the ETA before you start it, and don't stop the session while it runs. Run it so it can take that long (a background or long-running command you check on), not with a short command timeout; if the command is cut off, `bin/kit render <job>` again starts it over.
 
 ## 5. Report
 The `done/` path, the length, the QA verdict, the section list with output times (YouTube chapters: `0:00 Intro`, ... from your plan), and what was cut.

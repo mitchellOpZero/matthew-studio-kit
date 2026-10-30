@@ -66,7 +66,8 @@ def repo() -> str:
 def body(note: str, version: str, hf_version: str) -> tuple[str, str, str]:
     """(title, markdown body, signature of the failure)."""
     evs = events(15)
-    fail = next((e for e in reversed(evs) if e.get("code")), None)
+    recent = (dt.datetime.now() - dt.timedelta(hours=3)).isoformat(timespec="seconds")
+    fail = next((e for e in reversed(evs) if e.get("code") and e.get("t", "") >= recent), None)   # an old failure isn't this problem
     first = (fail.get("error", "").strip().splitlines() or [f"exit {fail['code']}"])[-1] if fail else ""
     sig = hashlib.sha1(re.sub(r"[0-9]+", "#", f"{fail['cmd']} {first}" if fail else note).encode()).hexdigest()[:10]
     what = f"{fail['cmd']} failed: {first}" if fail else "problem report"

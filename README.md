@@ -7,7 +7,10 @@ Default style: **matthew**. That's white captions with your crimson on each keyw
 snap punch-ins, logo pops, and your voice at -14 LUFS. **matthew-long** is the same look for 16:9 YouTube.
 
 ## Quick start
-1. `git clone https://github.com/mitchellOpZero/matthew-studio-kit ~/ColdApproach/matthew-studio-kit`
+1. In Terminal, once (the repo is private; accept Mitchell's GitHub invite first):
+   `brew install gh && gh auth login && gh auth setup-git`, then
+   `gh repo clone mitchellOpZero/matthew-studio-kit ~/ColdApproach/matthew-studio-kit`
+   (No Homebrew yet? Install it from brew.sh first.)
 2. Open the **Codex app** on that folder and say **"set this up"**. Codex installs everything, checks it, brings over your
    saved styles from the old kit, and runs a first edit with you. No plugin is needed: Codex reads `AGENTS.md` in this folder.
 3. Later, say **"update my kit"** to get the latest version from GitHub. Your styles and library are kept.

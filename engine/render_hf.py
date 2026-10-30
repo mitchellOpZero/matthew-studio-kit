@@ -227,6 +227,7 @@ def write_html(tl, blocks_meta):
     # (caption_template: captions.css + captions.js) takes over the keyword treatment.
     stroke, shadow = st.get("stroke", 7) * H / 1920, st.get("shadow", 2) * H / 1920
     white, hot = st.get("color", "#FFFFFF"), st.get("highlight_color", "#DC143C")
+    ks, kpop = float(st.get("keyword_scale", 1.0)), float(st.get("kw_pop_pct", 0)) / 100   # keyword size, and its pop as it's spoken
     design = caption_design(tl)
     # during a split screen (b-roll top, his face bottom) captions sit on the seam between the two, off his face
     seams = [(b["start"], b["start"] + b["frames"]) for b in tl["broll"] if b.get("layout") == "split"]
@@ -238,10 +239,13 @@ def write_html(tl, blocks_meta):
             for j, w in enumerate(line):
                 wid = f"w{i}_{li}_{j}"
                 col = hot if (w["hot"] and not st.get("kw_sync_pop") and not design) else white
+                size = f";font-size:{ks:g}em" if w["hot"] and ks != 1 and not design else ""
                 ws.append(f'<span id="{wid}" class="w{" kw" if w["hot"] else ""}" data-at="{jt(w["at"])}" '
-                          f'style="color:{col}">{html.escape(w["text"])}</span>')
+                          f'style="color:{col}{size}">{html.escape(w["text"])}</span>')
                 if w["hot"] and st.get("kw_sync_pop") and not design:
                     js.append(f'tl.fromTo("#{wid}", {{color: "{white}"}}, {{color: "{hot}", duration: 0.07, ease: "none"}}, {jt(w["at"])});')
+                if w["hot"] and kpop > 0 and not design:
+                    js.append(f'tl.fromTo("#{wid}", {{scale: {1 + kpop:g}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, ease: "none"}}, {jt(w["at"])});')
             lines.append("<div>" + " ".join(ws) + "</div>")
         px = c["size"] * st.get("font_css_scale", 0.82)
         seam = f' style="top:{H / 2:.0f}px"' if any(c["start"] < b and c["end"] > a for a, b in seams) else ""
@@ -470,8 +474,14 @@ def render(proj, out_mp4):
 
 def snapshot(proj, at):
     """Still frames of the project (no render): [png paths]."""
+    t0 = time.time()
     r = subprocess.run(hf() + ["snapshot", "--at", ",".join(f"{x:.2f}" for x in at)], cwd=proj, env=env(), capture_output=True, text=True, timeout=300)
-    return list(dict.fromkeys(re.findall(r"(/\S+/snapshots/\S+/frame-\d+\S*?\.png)", r.stdout + r.stderr)))
+    found = list(dict.fromkeys(m.strip() for m in re.findall(r"(/[^\n]*?/snapshots/[^\n]*?/frame-\d+[^\n]*?\.png)", r.stdout + r.stderr)))
+    if found and all(os.path.exists(f) for f in found):
+        return found
+    # paths with spaces, or a CLI that prints them differently: the frames this call just wrote, in time order
+    new = [f for f in glob.glob(os.path.join(proj, ".hyperframes", "**", "frame-*.png"), recursive=True) if os.path.getmtime(f) >= t0 - 1]
+    return sorted(new)
 
 
 def main():

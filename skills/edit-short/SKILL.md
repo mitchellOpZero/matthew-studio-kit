@@ -12,6 +12,7 @@ For a 16:9 long-form video, follow skills/long-form instead.
 `bin/kit draft <clip> --style <style> --name <job>`
 - Style: what he asked for, else `matthew`. List styles: `bin/kit style list`.
 - Job name: short, lowercase, e.g. `coaching-gap-15s`.
+- If it says a job with that name already exists, pick another name. Use `--replace` only when he wants that edit started over (it drops its plan and his hand edits in Studio).
 
 It writes `.work/<job>/edl.json` (cuts with pauses and fillers already removed, keywords, logos) and `.work/<job>/TRANSCRIPT.txt` (one word per line with its time in the clip).
 

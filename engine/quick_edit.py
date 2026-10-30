@@ -119,7 +119,8 @@ def _fit_one_line(chunk, st, fs, W):
     wide = 0.0
     for line in _lines(chunk, st):
         text = " ".join((w["w"].upper() if st["uppercase"] else w["w"]) for w in line)
-        wide = max(wide, font.getlength(text) * (1 + int(st.get("kw_pop_pct", 14)) / 100.0))
+        grow = max(1 + float(st.get("kw_pop_pct", 14)) / 100.0, float(st.get("keyword_scale", 1.0)))   # keywords drawn bigger
+        wide = max(wide, font.getlength(text) * grow)
     room = W - 2 * round(W * .06)
     return min(1.0, room / wide) if wide > 0 else 1.0
 

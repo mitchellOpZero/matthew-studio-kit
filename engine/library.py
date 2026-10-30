@@ -52,15 +52,16 @@ def _place(src, kind, name, ext):
     """Copy into library/<type>/<slug>.<ext> (a new number if that name is taken by a different file). Pictures in
     HEIC (iPhone) become PNG so every browser draws them."""
     d = os.path.join(LIB, FOLDER[kind]); os.makedirs(d, exist_ok=True)
-    if ext == ".heic":
-        out = os.path.join(d, slug(name) + ".png")
-        subprocess.run(["sips", "-s", "format", "png", src, "--out", out], check=True, capture_output=True)
-        return out
+    heic = ext == ".heic"
+    ext = ".png" if heic else ext
     base, n = slug(name), 1
     out = os.path.join(d, base + ext)
     while os.path.exists(out):
         n += 1; out = os.path.join(d, f"{base}-{n}{ext}")
-    shutil.copy2(src, out)
+    if heic:
+        subprocess.run(["sips", "-s", "format", "png", src, "--out", out], check=True, capture_output=True)
+    else:
+        shutil.copy2(src, out)
     return out
 
 
@@ -86,6 +87,16 @@ def add(path, kind, name, tags=""):
     return 0
 
 
+def _length(rel):
+    """A clip's length, so b-roll is never asked to play past its end."""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", os.path.join(KIT, rel)],
+                           capture_output=True, text=True, timeout=20)
+        return f"{float(r.stdout.strip()):.1f} s"
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return "length unknown"
+
+
 def list_items(words="", kind=None):
     idx = load()["items"]
     ws = [w for w in re.findall(r"[a-z0-9]+", words.lower())]
@@ -97,7 +108,8 @@ def list_items(words="", kind=None):
         if ws and not score: continue
         hits.append((score, it))
     for _, it in sorted(hits, key=lambda x: (-x[0], x[1]["type"], x[1]["name"])):
-        print(f"{it['type']:7} {it['name']}  ->  {it['file']}" + (f"  [{', '.join(it['tags'])}]" if it.get("tags") else ""))
+        print(f"{it['type']:7} {it['name']}  ->  {it['file']}" + (f"  ({_length(it['file'])})" if it["type"] in ("broll", "sfx") else "")
+              + (f"  [{', '.join(it['tags'])}]" if it.get("tags") else ""))
     if not hits:
         print("nothing in the library" + (f" matching {words!r}" if words else "") + (" yet: kit library sync, or kit library add" if not idx else ""))
     return 0
