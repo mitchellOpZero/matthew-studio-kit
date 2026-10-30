@@ -32,13 +32,14 @@ Edit `.work/<job>/edl.json` only.
 
 ## 4. Preview (he watches it before anything renders)
 `bin/kit preview <job>` prints a Studio link like `http://localhost:3101/#project/<job>`. Give him the link. Studio plays the whole edit with his voice; nothing has been rendered yet.
+- **Showing it in Codex:** open each job's Studio link once in Codex's browser (one tab per job) and leave those tabs open. They reload by themselves after every change, so never open another tab or another copy for the same job.
 - If he's not watching, look at it yourself first: `kit preview` already ran HyperFrames' own layout check; also read the caption line it printed.
 - **His notes:**
   - Cuts, keywords, which part of the clip, b-roll / pictures / blocks: change `edl.json`, run `bin/kit preview <job>` again. His tab reloads by itself.
   - A tweak on this video only (move a picture, nudge a caption, a colour on one word): edit `.work/_studio/<job>/index.html`. Studio reloads.
   - He can drag, trim and change things by hand in Studio; that lands in the same `index.html`.
   - Once `index.html` has hand edits, a plan change has to go into `index.html` too (the kit keeps hand-edited projects). Ask him before `bin/kit preview <job> --rebuild`, which starts over from the plan.
-  - A change he wants on every video goes into the style (skills/style).
+  - **A look change** (caption size, colour or position, zoom amount, font, how keywords look) is a style change, even mid-review: follow skills/style and **ask first**: "Save over **<style>**, or save as a new style?" Use `bin/kit style set`, never a find-and-replace in `index.html`. Then `bin/kit preview <job> ... --rebuild` so the open tabs show the new look; if any of those projects has hand edits, tell him the rebuild drops them and ask first. Only when he says "just this video" does it go into that video's `index.html`.
 - Keep going until he says it looks right. If he asked you to just finish it, go straight to step 5.
 
 ## 5. Render and check
