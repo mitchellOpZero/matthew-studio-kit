@@ -17,6 +17,7 @@ Chrome and a local Studio server. Always call it as `bin/kit`, so the rule appli
 | check a finished video | `skills/video-qa/SKILL.md` |
 | update the kit | run `bin/kit update`. It pulls the newest kit, then brings HyperFrames and the Python packages up to date (tested first). His styles in `my-styles/` and his library in `library/` are untouched. Then tell him the new version. |
 | "is HyperFrames up to date?", a library problem | `bin/kit deps status`. A bad update: `bin/kit deps rollback`. |
+| "send Mitchell a report", "tell Mitchell this is broken" | `bin/kit report --note "<what he was doing, in his words>"` (below) |
 
 ## One way to edit, every time
 1. `bin/kit draft <clip> [--style <name>] [--name <job>] [--long]` makes `.work/<job>/` with `edl.json` (the plan) and `TRANSCRIPT.txt`.
@@ -36,3 +37,4 @@ Chrome and a local Studio server. Always call it as `bin/kit`, so the rule appli
 - Do not put look values in `edl.json`. Per-video choices (cuts, keywords, which b-roll, picture or block goes where, a caption height for this video) do go there.
 - Follow the style's STYLE.md on every edit. Matthew's default `matthew` is "the basics": no music, no stacked sound effects, no clutter.
 - Report in plain words: the Studio link while he's reviewing; then the file in `done/`, its length, the QA verdict, and what was cut.
+- **Problems go to Mitchell by themselves.** When the kit fails and you can't fix it (the same `bin/kit` error twice after a real fix attempt, a Python traceback, or QA still failing after two fix rounds), run `bin/kit report --note "<one line: what he asked for and what broke>"` without asking him, then tell him: "That's a kit problem, so I sent Mitchell a report; he'll fix it in an update." It files a GitHub issue with the error, the recent commands and the versions, never a video, a transcript or a secret. Don't report his own choices the kit rightly refused (a bad value, a missing clip), and never put a secret in the note. If it says it couldn't send, tell him to send Mitchell the file it names.

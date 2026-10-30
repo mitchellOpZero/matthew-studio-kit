@@ -47,4 +47,5 @@ animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one ("s
 ## If something goes wrong
 - Codex tells you in plain words what failed. A failed video never lands in `done/`.
 - "Run setup" (or "check my kit") fixes missing installs.
-- Still stuck? Send Mitchell the message Codex showed you.
+- If the kit itself breaks, Codex sends Mitchell a report on its own (the error and versions only: no video, no transcript).
+  The fix reaches you with the next update. You can also say **"send Mitchell a report"** any time.

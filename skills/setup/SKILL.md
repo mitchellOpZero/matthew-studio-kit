@@ -10,6 +10,7 @@ He just cloned the kit and said "set this up". Do every step yourself. Ask befor
 1. **Tools.** Check `brew -v`.
    - If Homebrew is missing, tell him to run the official install command from brew.sh in Terminal (it needs his password), then continue.
    - Then: `brew install gh git ffmpeg-full python@3.12 node`. Skip anything already installed.
+   - If `gh auth status` says he isn't logged in: he runs `gh auth login` in Terminal (GitHub.com, HTTPS, log in with a browser). Updates and problem reports to Mitchell both use it.
 2. **Python packages.** In the kit folder: `python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt`. These are the tested starting versions; newer ones install on their own later, after passing a test.
 3. **HyperFrames** (previews and draws every video). `bin/kit prepare`. It fetches the tested HyperFrames version and its own headless Chrome once (about 200 MB). From then on the kit updates HyperFrames and the Python packages by itself, once a day, testing each update before switching (`bin/kit deps status`).
 4. **Trust the folder.** When Codex asks whether to trust this folder, he says yes. That turns on `.codex/rules/kit.rules`, which lets `bin/kit` start the Studio preview and HyperFrames' Chrome. Without it every preview and render stops with a sandbox error.

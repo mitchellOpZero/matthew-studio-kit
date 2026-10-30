@@ -23,6 +23,10 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit library add <file> --type broll|picture|sfx --name <name> [--tags a,b]
   kit library sync                             pull new items from his Notion library database (kit library connect first)
   kit library connect <database url or id>     link the Notion database (the token is read from the Keychain, never printed)
+  kit report [--note "<what he was doing>"] [--dry-run]
+                                               file a problem report for Mitchell as a GitHub issue: the last error, recent
+                                               commands, versions (never a video, transcript or secret). Every command is
+                                               logged to .cache/log/events.jsonl for it.
 
 Every job lives in .work/<job>/. Nothing outside the kit folder is written except done/.
 """
@@ -42,9 +46,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import deps  # noqa: E402  (engine/deps.py: the outside libraries update themselves, tested first)
+import report  # noqa: E402  (engine/report.py: the command log and problem reports)
 
 KIT = Path(__file__).resolve().parent.parent
 ENGINE = KIT / "engine"
+LAST_ERROR = ""                    # what the command died with, for the log (engine/report.py)
 STYLES = KIT / "styles"            # built-in styles (ship with the kit, updated by git pull)
 USER_STYLES = KIT / "my-styles"    # his saved styles and edits (never touched by updates; wins over built-in)
 GRAPHICS = KIT / "graphics"
@@ -78,6 +84,8 @@ def own_style(name: str) -> Path:
 
 
 def die(msg: str, code: int = 1):
+    global LAST_ERROR
+    LAST_ERROR = msg
     print(f"kit: {msg}", file=sys.stderr)
     sys.exit(code)
 
@@ -217,6 +225,9 @@ def cmd_doctor(a) -> int:
     line((KIT / ".codex/rules/kit.rules").exists(), "Codex rule that lets previews and renders start Chrome (.codex/rules/kit.rules)", "re-clone the kit")
     line((KIT / "assets/fonts/Montserrat-ExtraBold.ttf").exists(), "caption font", "re-clone the kit")
     line((STYLES / "matthew/style.json").exists(), "default style 'matthew'", "re-clone the kit")
+    gh = shutil.which("gh", path=e["PATH"]) or shutil.which("gh", path="/opt/homebrew/bin:/usr/local/bin")
+    gha = gh and subprocess.run([gh, "auth", "status"], capture_output=True, text=True).returncode == 0
+    line(bool(gha), "GitHub login (kit updates, and problem reports to Mitchell)", "brew install gh, then gh auth login" if not gh else "gh auth login")
     sm = [p / "hub" / MODEL for p in (Path.home() / ".cache/huggingface", KIT / ".cache/huggingface")]
     line(any(p.exists() for p in sm), "speech model small.en (464 MB)", "it downloads on the first transcribe; needs internet once")
     others = other_skills()
@@ -560,17 +571,20 @@ def validate_style(st: dict, style_dir: Path | None = None) -> list[str]:
             colour(k, st[k])
     if isinstance(st.get("box"), dict) and "color" in st["box"]:
         colour("box.color", st["box"]["color"])
-    if not (0.01 <= float(st.get("font_size_frac", 0.093)) <= 0.30):
-        bad.append("font_size_frac must be 0.01-0.30 of the frame height")
-    if not (0.05 <= float(st.get("center_y_frac", 0.64)) <= 0.95):
-        bad.append("center_y_frac must keep captions on screen (0.05-0.95)")
-    if not (1 <= int(st.get("lines", 1) or 1) <= 4):
-        bad.append("lines must be 1-4")
-    if not (1 <= int(st.get("max_words", 2)) <= 12):
-        bad.append("max_words must be 1-12")
+    def within(k, v, lo, hi, kind, why):
+        try:
+            ok = lo <= kind(v) <= hi
+        except (TypeError, ValueError):
+            ok = False
+        if not ok:
+            bad.append(f"{k} {why} (got {v!r})")
+    within("font_size_frac", st.get("font_size_frac", 0.093), 0.01, 0.30, float, "must be 0.01-0.30 of the frame height")
+    within("center_y_frac", st.get("center_y_frac", 0.64), 0.05, 0.95, float, "must keep captions on screen (0.05-0.95)")
+    within("lines", st.get("lines", 1) or 1, 1, 4, int, "must be 1-4")
+    within("max_words", st.get("max_words", 2), 1, 12, int, "must be 1-12")
     pu = st.get("punch") or {}
-    if pu and not (1.0 <= float(pu.get("zoom_tight", 1.17)) <= 2.0):
-        bad.append("punch.zoom_tight must be 1.0-2.0")
+    if pu:
+        within("punch.zoom_tight", pu.get("zoom_tight", 1.17), 1.0, 2.0, float, "must be 1.0-2.0")
     font = st.get("font_file", "Montserrat-ExtraBold.ttf")
     if not any((d / font).exists() for d in [KIT / "assets/fonts"] + ([style_dir / "fonts"] if style_dir else [])):
         bad.append(f"font_file {font} is not in assets/fonts/ or the style's fonts/ folder")
@@ -698,7 +712,10 @@ def cmd_style(a) -> int:
         if a.as_name:
             st["_about"] = f"Made from {a.name} on {dt.date.today()}. " + st.get("_about", "")
         json.dump(st, open(tpath, "w"), indent=2)
-        ok, msg = style_test(target, a.clip)
+        try:
+            ok, msg = style_test(target, a.clip)
+        except Exception as e:   # whatever goes wrong, the style goes back to how it was
+            ok, msg = False, f"{type(e).__name__}: {e}"
         if not ok:
             if before:
                 restore(target, before.name)
@@ -923,7 +940,10 @@ def main() -> int:
     lb.add_argument("--type", choices=["broll", "picture", "sfx"]); lb.add_argument("--name"); lb.add_argument("--tags")
     sp.add_parser("update"); sp.add_parser("prepare")
     u = sp.add_parser("deps"); u.add_argument("action", choices=["status", "check", "rollback"])
+    rp = sp.add_parser("report"); rp.add_argument("--note", default=""); rp.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.cmd == "report":
+        return report.send(a.note, kit_version(), hfm().hf_version(), dry=a.dry_run)
     if a.cmd not in ("version", "deps", "update", "prepare"):
         busy = KIT / ".cache" / "deps" / "busy" / str(os.getpid())   # a library switch waits while a command is running
         busy.parent.mkdir(parents=True, exist_ok=True); busy.touch()
@@ -935,5 +955,29 @@ def main() -> int:
             "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library}[a.cmd](a)
 
 
+def logged_main() -> int:
+    """main(), with each command's outcome added to the log that kit report sends."""
+    import time
+    import traceback
+    t0, argv = time.time(), sys.argv[1:]
+    cmd = argv[0] if argv else ""
+    if cmd in ("report", "version", "-h", "--help", ""):
+        return main()
+    try:
+        code = main()
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        if code and not LAST_ERROR and not isinstance(e.code, int):
+            report.log_event(cmd, argv[1:], code, time.time() - t0, str(e.code))
+        else:
+            report.log_event(cmd, argv[1:], code, time.time() - t0, LAST_ERROR if code else "")
+        raise
+    except BaseException:
+        report.log_event(cmd, argv[1:], 1, time.time() - t0, traceback.format_exc())
+        raise
+    report.log_event(cmd, argv[1:], code or 0, time.time() - t0, LAST_ERROR if code else "")
+    return code
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(logged_main())
