@@ -4,7 +4,7 @@ Open **Codex** in `~/ColdApproach/matthew-studio-kit` and just ask. Codex does t
 few one-time steps (installing Homebrew, logging in to GitHub, connecting Notion); Codex tells you exactly what to type.
 
 ## Edit a video
-1. Drop your raw clip in the `inbox` folder.
+1. Drop your raw clip in the `inbox` folder, or drag it straight into the Codex chat (Codex copies it into `inbox` for you).
 2. Ask Codex:
    - "Edit the clip in inbox with my style." This cleans up the full clip.
    - "Make a 15 second Short from the clip in inbox." Codex picks the strongest 15 seconds.
