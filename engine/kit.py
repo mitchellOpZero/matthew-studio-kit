@@ -50,6 +50,7 @@ import report  # noqa: E402  (engine/report.py: the command log and problem repo
 
 KIT = Path(__file__).resolve().parent.parent
 ENGINE = KIT / "engine"
+NODE_MIN = 22                      # HyperFrames' own requirement (its package.json: engines.node >=22)
 LAST_ERROR = ""                    # what the command died with, for the log (engine/report.py)
 STYLES = KIT / "styles"            # built-in styles (ship with the kit, updated by git pull)
 USER_STYLES = KIT / "my-styles"    # his saved styles and edits (never touched by updates; wins over built-in)
@@ -213,7 +214,8 @@ def cmd_doctor(a) -> int:
             line(r.returncode == 0, "Apple Vision for QA (pyobjc)", f"cd {KIT} && .venv/bin/python -m pip install -r requirements.txt")
     nd = shutil.which("node", path=e["PATH"]) or shutil.which("node", path="/opt/homebrew/bin:/usr/local/bin")
     nv = subprocess.run([nd, "--version"], capture_output=True, text=True).stdout.strip() if nd else ""
-    line(bool(nd) and int((nv.lstrip("v").split(".") or ["0"])[0] or 0) >= 18, f"Node.js {nv or 'missing'} (18 or newer)", "brew install node")
+    line(bool(nd) and int((nv.lstrip("v").split(".") or ["0"])[0] or 0) >= NODE_MIN, f"Node.js {nv or 'missing'} ({NODE_MIN} or newer, for HyperFrames)",
+         "brew install node" if not nd else "brew upgrade node")
     hfr = hfm()
     want = json.load(open(hfr.FLOOR))["version"]
     got = subprocess.run(hfr.hf() + ["--version"], capture_output=True, text=True, env=hfr.env(), timeout=300).stdout.strip() if nd else ""
