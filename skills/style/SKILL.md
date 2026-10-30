@@ -21,12 +21,12 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
 2. **Ask before saving:** "Save over **<style>**, or save as a new style? If new, what name?"
 3. Make the change:
    - **A setting covers it:** `bin/kit style set <style> key=value ... [--as <new-name>]`. The command draws the style on his clip and only saves if it draws cleanly. If it fails, nothing changes.
-   - **Nothing covers it:** build it (see "Building something new"). Run `bin/kit style snapshot <style>` before editing files, and for a new style run `bin/kit style new <new-name> --from <style>` first. Afterwards, `bin/kit style test <style>` must print OK. If it doesn't, fix it, or undo with `bin/kit style restore <style> <version>`.
-4. Add one dated line to that style's `STYLE.md` under "Changes Matthew asked for", e.g. `2026-10-28: captions stacked on two lines`.
+   - **Nothing covers it:** build it (see "Building something new"). Run `bin/kit style snapshot <style>` before editing files, and for a new style run `bin/kit style new <new-name> --from <style>` first. Afterwards, `bin/kit style test <style>` must print OK. If it doesn't, fix it, or put it back with `bin/kit style undo <style>`.
+4. `kit style set` writes a dated line under "Changes Matthew asked for" in the style's `STYLE.md` by itself (e.g. `2026-10-30: font_size_frac 0.093 -> 0.0837`). For a change you built by hand (a template, a rule in STYLE.md), add one line yourself in his words, e.g. `2026-10-28: captions stacked on two lines`.
 5. Preview: `bin/kit style preview <style>` (3 s of his last clip, live in Studio, plus a still). **Look at the still yourself first.** The test only proves it draws, not that it looks right: check that the text is the size you meant, the colours are right, and nothing covers his face or runs off the edge. Fix anything wrong, then give him the Studio link.
-6. Undo any time: `bin/kit style versions <style>`, then `bin/kit style restore <style> <version>`.
-   - **"Undo that" / "go back" in a new chat** (you don't see the change above): don't ask what to undo. Take his style (`matthew` unless he names another, or the style he last edited: newest `my-styles/*/versions/`), read the newest dated line under "Changes Matthew asked for" in its STYLE.md, restore the newest version (`bin/kit style versions <style>`, last line), and tell him in one line what you undid ("Undid: captions 10% smaller, back to 0.093"). Add a dated "undid ..." line to STYLE.md.
-   - "Go back to how it was yesterday": the newest version saved before today.
+6. **"Undo that" / "go back"** (in this chat or a new one): `bin/kit style undo` (or `bin/kit style undo <style>` if he names one). With no name it undoes the style he changed last. Don't ask what to undo. It puts back the version from before his newest change, prints what it undid, and logs it; tell him in one line ("Undid: captions 10% smaller"). Saying it again goes one change further back. A save the kit rejected is never in the undo list.
+   - "Go back to how it was yesterday": `bin/kit style versions <style>`, then `bin/kit style restore <style> <the first version stamped today>` (each version is the style as it was just before that save). If nothing is stamped today, nothing changed since yesterday.
+   - A restore is itself a change, so `bin/kit style undo` takes it back.
 
 ## Settings (style.json); combine freely
 Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0.7}`. Dotted keys reach inside: `punch.zoom_tight=1.25`.
@@ -43,16 +43,16 @@ Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0
   - `caption_breaks`: per video, in edl.json.
 - **Caption look**
   - `color`, `highlight_color`, `stroke`, `stroke_color`, `shadow`, `uppercase`
-  - `box`: `{"color", "opacity", "pad"}` puts a box behind the caption.
+  - A box behind the caption isn't a setting in this kit (`box` is refused): build it as a caption design (below, "Building something new"), with the box in `captions.css`.
   - `font`: family name. `font_file`: in assets/fonts or the style's fonts/.
 - **Highlight**
   - `highlight_mode`: `keywords` (Codex picks per video), `every_word` (karaoke) or `none`.
   - `kw_sync_pop`: the colour lands as the word is spoken.
-  - `kw_pop_pct`: pop size for the keyword.
-  - `keyword_scale`
+  - `kw_pop_pct`: the keyword pops this % bigger as it's spoken, then settles (0 = no pop).
+  - `keyword_scale`: keywords drawn this much bigger than the other words (1.0 = same size, 1.15 = 15% bigger).
 - **Caption motion**
   - `pop_scale`, `pop_ms`: how a caption pops in.
-  - `word_pop`: every word pops as spoken.
+  - Every word popping as it's spoken isn't a setting in this kit (`word_pop` is refused): build it as a caption design (a `tl.fromTo` scale on each `.w` at its `at`).
 - **Zooms**
   - `punch.zoom_wide`, `punch.zoom_tight`
   - `punch.every_s`: how often it switches.
@@ -67,17 +67,18 @@ Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0
 ## Building something new (when no setting covers it)
 Build it inside the style folder. **Never edit `engine/`.** A new piece must pass `bin/kit style test <style>`.
 - **A different caption design** (per-word boxes, two colours, captions that slide in, an underline, etc.): a caption design.
-  1. Make `my-styles/<style>/templates/<name>/` with `manifest.json` (`"kind": "captions"`), `captions.css` and `captions.js`. `graphics/underline/` is a working example (keywords stay white, a bar slides in under each one); copy it as the starting point.
+  1. `bin/kit style snapshot <style>` first (it also makes his own copy of a built-in style, so undo works). Then make `my-styles/<style>/templates/<name>/` with `manifest.json` (`"kind": "captions"`), `captions.css` and `captions.js`. `graphics/underline/` is a working example (keywords stay white, a bar slides in under each one); copy it as the starting point.
      - Every caption is drawn by the kit as `.capin` with one `.w` span per word (keywords also have `.kw`). `captions.css` restyles them.
      - `captions.js` runs once with `tl` (the video's GSAP timeline), `captions` (each `{el, t0, words: [{el, at, hot, text}]}`; times in seconds on the video's timeline), `style` (his style.json) and `scale` (frame height / 1920). Add timed animations with `tl.set / tl.to / tl.fromTo(..., at)`. You may add elements to a word. No timers, no random values, no network.
      - With a caption design set, the kit leaves keyword colouring to the design. Read colours and sizes from `style`, so later setting changes still work.
   2. Set `caption_template="<name>"` in style.json, then `bin/kit style test <style>`, then `bin/kit style preview <style>` and look at the keyword moments.
 - **A new motion graphic** (DM card, list, stat card, lower third, etc.): see skills/graphics part 3 (start from a library block when one is close). Say in STYLE.md when it should appear; skills/edit-short then places it on each video.
-- **A new font:** put the .ttf in `styles/<style>/fonts/` and set `font` and `font_file`.
+- **A new font:** `bin/kit style snapshot <style>`, put the .ttf in `my-styles/<style>/fonts/` (never in `styles/`, which updates replace), then `bin/kit style set <style> font="<family>" font_file=<file>.ttf`.
 - **Something needing a setting that doesn't exist yet:** build it with a template as above, and tell him it's done. Mitchell can fold it into the kit later.
 
 ## A style from a reference reel
-1. Make a contact sheet and look at it: `ffmpeg -i ref.mp4 -vf fps=2,scale=270:-1,tile=8x4 -frames:v 1 ref_sheet.jpg`. This is the one direct ffmpeg use allowed.
+0. **The reel has to be a video file.** If he sends an Instagram or TikTok link, ask him to save the video (download it, or screen-record it) and drag the file into the chat. Never put a reference reel in `inbox/` (that folder is his own clips, and `$episode` would edit it).
+1. Make a contact sheet and look at it: `bin/kit style sheet <reel file>` (it prints where the picture is).
 2. Note what you see:
    - caption font feel, case, colour, size (share of frame height), position, words per caption, lines, box or stroke, highlight style
    - how often and how far the shot zooms

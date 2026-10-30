@@ -16,6 +16,8 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit qa <video> [--job <job>]                 run the QA gate on a video
   kit style list | show <name> | new <name> [--from <style>] | set <name> key=value ... [--as <new>]
   kit style snapshot <name> | test <name> | versions <name> | restore <name> <version> | preview <name> [--clip <clip>]
+  kit style undo [<name>]                      undo the newest saved change (the style changed last if no name); again = further back
+  kit style sheet <reel.mp4>                   a contact sheet of a reference reel (.work/_refs/) to build a style from
   kit style import <old kit folder>            copy his saved styles from the old Matthew Edit Kit
   kit graphics list | test <graphic>           the kit's own graphics (logo pop, picture card, text card)
   kit blocks search <words> | test <name>      HyperFrames library blocks (about 200: chat and app mock-ups, charts, titles ...)
@@ -50,6 +52,7 @@ import report  # noqa: E402  (engine/report.py: the command log and problem repo
 
 KIT = Path(__file__).resolve().parent.parent
 ENGINE = KIT / "engine"
+NODE_MIN = 22                      # HyperFrames' own requirement (its package.json: engines.node >=22)
 LAST_ERROR = ""                    # what the command died with, for the log (engine/report.py)
 STYLES = KIT / "styles"            # built-in styles (ship with the kit, updated by git pull)
 USER_STYLES = KIT / "my-styles"    # his saved styles and edits (never touched by updates; wins over built-in)
@@ -79,7 +82,7 @@ def own_style(name: str) -> Path:
     """Where a style is written: his copy. The first edit of a built-in style copies it over."""
     u = USER_STYLES / name
     if not (u / "style.json").exists() and (STYLES / name / "style.json").exists():
-        shutil.copytree(STYLES / name, u, ignore=shutil.ignore_patterns("versions", "out", "__pycache__"))
+        shutil.copytree(STYLES / name, u, ignore=shutil.ignore_patterns("versions", "out", "__pycache__"), dirs_exist_ok=True)
     return u
 
 
@@ -141,7 +144,7 @@ def other_skills() -> list[str]:
     cache = Path.home() / ".codex" / "plugins" / "cache"
     if cache.is_dir():
         found += [f"{p.parent.name} (plugin)" for p in sorted(cache.glob("*/*/skills/*/SKILL.md")) if CLASH.search(p.parent.name)
-                  and "matthew-edit-kit" not in str(p)]
+                  and "matthew-edit-kit" not in str(p) and "matthew-studio-kit" not in str(p)]
     return found
 
 
@@ -213,7 +216,8 @@ def cmd_doctor(a) -> int:
             line(r.returncode == 0, "Apple Vision for QA (pyobjc)", f"cd {KIT} && .venv/bin/python -m pip install -r requirements.txt")
     nd = shutil.which("node", path=e["PATH"]) or shutil.which("node", path="/opt/homebrew/bin:/usr/local/bin")
     nv = subprocess.run([nd, "--version"], capture_output=True, text=True).stdout.strip() if nd else ""
-    line(bool(nd) and int((nv.lstrip("v").split(".") or ["0"])[0] or 0) >= 18, f"Node.js {nv or 'missing'} (18 or newer)", "brew install node")
+    line(bool(nd) and int((nv.lstrip("v").split(".") or ["0"])[0] or 0) >= NODE_MIN, f"Node.js {nv or 'missing'} ({NODE_MIN} or newer, for HyperFrames)",
+         "brew install node" if not nd else "brew upgrade node")
     hfr = hfm()
     want = json.load(open(hfr.FLOOR))["version"]
     got = subprocess.run(hfr.hf() + ["--version"], capture_output=True, text=True, env=hfr.env(), timeout=300).stdout.strip() if nd else ""
@@ -233,7 +237,7 @@ def cmd_doctor(a) -> int:
     others = other_skills()
     if others:
         print(f"NOTE {len(others)} other video skill(s) on this Mac that Codex can see. The kit ignores them (AGENTS.md), "
-              "but if one ever takes over an edit, move it aside (skills/setup step 7):")
+              "but if one ever takes over an edit, move it aside (skills/setup step 8):")
         for o in others:
             print(f"       {o}")
     print("Ready to edit." if ok else "Fix the lines marked FIX, then run kit doctor again.")
@@ -353,8 +357,14 @@ def cmd_draft(a) -> int:
         if run_core(["transcribe", str(clip)]) != 0:
             die("transcription failed")
     words = load_words(wp)
-    name = a.name or re.sub(r"[^A-Za-z0-9_-]+", "-", clip.stem)[:40]
+    name = re.sub(r"-+", "-", re.sub(r"[^a-z0-9_-]+", "-", (a.name or clip.stem).lower())).strip("-")[:40] or "clip"
     job = WORK / name
+    if (job / "edl.json").exists():
+        if not a.replace:
+            die(f"there's already a job called {name} (from {json.load(open(job / 'edl.json')).get('source', '?')}). "
+                f"Pick another --name, or --replace to start it over (drops its plan and any hand edits in Studio).")
+        shutil.rmtree(job)
+        shutil.rmtree(WORK / "_studio" / name, ignore_errors=True)
     (job / "inputs").mkdir(parents=True, exist_ok=True)
     src_link = job / "inputs" / clip.name
     if src_link.is_symlink() or src_link.exists():
@@ -482,6 +492,13 @@ def finish_render(mp4: Path, job: Path) -> int:
         shutil.copy2(job / "out" / "qa" / "QA-REPORT.md", DONE / f"{mp4.stem}.QA-REPORT.md")
         print(f"PASS -> {dest}")
         return 0
+    global LAST_ERROR
+    try:
+        items = json.load(open(job / "out" / "qa" / "qa.json"))["items"]
+        fails = [f"{i['check']} at {i['start'] if i['start'] is not None else '-'}s: {i['msg']}" for i in items if i["sev"] == "FAIL"]
+    except (OSError, ValueError, KeyError):
+        fails = []
+    LAST_ERROR = f"QA FAIL on {job.name}: " + (" | ".join(fails[:5]) or "see QA-REPORT.md")
     print(f"FAIL -> fix the flags in {job / 'out' / 'qa' / 'QA-REPORT.md'}, then kit render {job.name} again (max 2 rounds).")
     return 2
 
@@ -606,17 +623,46 @@ def snapshot(name: str) -> Path:
     return dst
 
 
-def restore(name: str, version: str) -> None:
+def restore(name: str, version: str, keep_current: bool = True) -> None:
+    """Put a saved version back. keep_current saves the state it replaces as a version too (so that can be undone);
+    rolling back a failed save doesn't, so a rejected change never becomes something "undo" brings back."""
+    if not (USER_STYLES / name / "versions" / version).is_dir():
+        die(f"no version {version} of {name}. See: kit style versions {name}")
     base = own_style(name)
     src = base / "versions" / version
-    if not src.is_dir():
-        die(f"no version {version} of {name}. See: kit style versions {name}")
-    snapshot(name)
+    if keep_current:
+        snapshot(name)
     for item in base.iterdir():
         if item.name != "versions":
             shutil.rmtree(item) if item.is_dir() else item.unlink()
     for item in src.iterdir():
         (shutil.copytree if item.is_dir() else shutil.copy2)(item, base / item.name)
+
+
+CHANGES = "## Changes Matthew asked for"
+
+
+def log_change(name: str, text: str) -> None:
+    """A dated line under "Changes Matthew asked for" in the style's STYLE.md (undo in a new chat reads the newest one)."""
+    p = own_style(name) / "STYLE.md"
+    s = p.read_text() if p.exists() else ""
+    if CHANGES not in s:
+        s = s.rstrip("\n") + f"\n\n{CHANGES}\n"
+    p.write_text(s.rstrip("\n") + f"\n{dt.date.today()}: {text}\n")
+
+
+def last_change(name: str) -> str:
+    """The newest change still in effect (its dated line), skipping "undid ..." lines."""
+    p = style_dir(name) / "STYLE.md"
+    s = p.read_text().split(CHANGES, 1) if p.exists() else []
+    lines = [x.strip() for x in (s[1].splitlines() if len(s) > 1 else []) if re.match(r"\d{4}-\d{2}-\d{2}: (?!undid )", x.strip())]
+    return lines[-1] if lines else ""
+
+
+def get_dotted(d: dict, key: str):
+    for k in key.split("."):
+        d = d.get(k) if isinstance(d, dict) else None
+    return d
 
 
 def style_test(name: str, clip: str | None = None) -> tuple[bool, str]:
@@ -641,6 +687,10 @@ def cmd_style(a) -> int:
             continue
             print(f"{n}: {about[:120]}")
         return 0
+    if a.action == "undo":
+        return style_undo(a.name)
+    if a.action == "sheet":
+        return contact_sheet(a.name)
     if not a.name:
         die("name a style, e.g. kit style show matthew")
     if a.action == "import":
@@ -659,16 +709,21 @@ def cmd_style(a) -> int:
             print("templates in this style:", ", ".join(extra))
         return 0
     if a.action == "versions":
-        for v in sorted(p.name for p in (folder / "versions").iterdir() if p.is_dir()) if (folder / "versions").exists() else []:
+        for v in sorted(p.name for p in (folder / "versions").iterdir() if p.is_dir() and not p.name.startswith(".")) if (folder / "versions").exists() else []:
             print(v)
         return 0
     if a.action == "restore":
         if not a.pairs:
             die(f"say which version: kit style versions {a.name}")
+        undone = last_change(a.name)
         restore(a.name, a.pairs[0])
-        print(f"restored {a.name} to {a.pairs[0]} (the state before this restore is saved as a version too)")
+        remember_style(a.name, "changed")
+        log_change(a.name, f"undid \"{undone.split(': ', 1)[-1]}\" (back to version {a.pairs[0]})" if undone else f"went back to version {a.pairs[0]}")
+        print(f"restored {a.name} to {a.pairs[0]} (the state before this restore is saved as a version too)"
+              + (f"\nundid: {undone}" if undone else ""))
         return 0
     if a.action == "snapshot":
+        remember_style(a.name, "changed")
         print(f"saved version: {snapshot(a.name).relative_to(KIT)}  (undo: kit style restore {a.name} <version>)")
         return 0
     if a.action == "test":
@@ -693,6 +748,11 @@ def cmd_style(a) -> int:
         return 0
     if a.action == "set":
         target = a.as_name or a.name
+        for pair in a.pairs:   # before anything is copied or saved
+            if "=" not in pair:
+                die(f"use key=value (got {pair!r})")
+        if not a.pairs:
+            die(f"nothing to set: kit style set {a.name} key=value ...")
         if a.as_name:
             if (style_dir(target) / "style.json").exists():
                 die(f"style {target!r} already exists; pick another name")
@@ -701,13 +761,14 @@ def cmd_style(a) -> int:
             shutil.copytree(folder, USER_STYLES / target, ignore=shutil.ignore_patterns("versions", "out", "__pycache__"))
             before = None
         else:
+            fresh = not (USER_STYLES / target / "style.json").exists()   # first save over a built-in style copies it here
             before = snapshot(target)
         tpath = own_style(target) / "style.json"
         st = json.load(open(tpath))
+        was = {}
         for pair in a.pairs:
-            if "=" not in pair:
-                die(f"use key=value (got {pair!r})")
             k, v = pair.split("=", 1)
+            was[k.strip()] = get_dotted(st, k.strip())
             set_dotted(st, k.strip(), parse_value(v.strip()))
         if a.as_name:
             st["_about"] = f"Made from {a.name} on {dt.date.today()}. " + st.get("_about", "")
@@ -717,15 +778,76 @@ def cmd_style(a) -> int:
         except Exception as e:   # whatever goes wrong, the style goes back to how it was
             ok, msg = False, f"{type(e).__name__}: {e}"
         if not ok:
-            if before:
-                restore(target, before.name)
-            else:
+            if before and not fresh:
+                restore(target, before.name, keep_current=False)
+                shutil.rmtree(before)   # identical to what's back in place; undo goes to the change before
+            else:   # a new style, or the copy of a built-in one this save made: gone again, so updates still reach it
                 shutil.rmtree(USER_STYLES / target)
             die(f"not saved, the style didn't render: {msg}. Nothing changed.")
+        remember_style(target, "made" if a.as_name else "changed")
+        what = ", ".join(f"{k} {was[k]!r} -> {get_dotted(st, k)!r}" for k in was)
+        log_change(target, (f"made from {a.name}; " if a.as_name else "") + (what or "saved"))
         print(f"saved style {target}" + (f" (previous version: {before.name})" if before else "") + f"\nstill: {WORK / ('_preview-' + target) / 'out' / ('preview-' + target + '.jpg')}"
               + f"\nwatch it: kit style preview {target}")
         return 0
     die(f"unknown style action {a.action}")
+
+
+LAST_STYLE = KIT / ".cache" / "last-style.json"
+
+
+def remember_style(name: str, how: str) -> None:
+    """The style he changed last, so "undo that" in a new chat knows which one."""
+    LAST_STYLE.parent.mkdir(parents=True, exist_ok=True)
+    LAST_STYLE.write_text(json.dumps({"style": name, "how": how, "at": dt.datetime.now().isoformat(timespec="seconds")}))
+
+
+def style_undo(name: str | None) -> int:
+    """Undo the newest saved change: put the newest version back and use it up, so a second undo goes one further back."""
+    last = {}
+    try:
+        last = json.loads(LAST_STYLE.read_text())
+    except (OSError, ValueError):
+        pass
+    name = name or last.get("style") or "matthew"
+    vdir = USER_STYLES / name / "versions"
+    vs = sorted(p for p in vdir.iterdir() if p.is_dir() and not p.name.startswith(".")) if vdir.is_dir() else []
+    if not vs:
+        if last.get("style") == name and last.get("how") == "made":
+            print(f"{name} is a new style with no changes since it was made; nothing to undo inside it. "
+                  f"His other styles are untouched. (To remove {name}, ask him first.)")
+        else:
+            print(f"nothing to undo in {name}: no saved changes")
+        return 0
+    v = vs[-1]
+    undone = last_change(name)
+    restore(name, v.name, keep_current=False)
+    stash = vdir / ".undone" / dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    stash.parent.mkdir(exist_ok=True)
+    shutil.move(str(v), str(stash))   # out of the undo list; kept in case he wants it back
+    bad = validate_style(json.load(open(USER_STYLES / name / "style.json")), USER_STYLES / name)
+    log_change(name, f"undid \"{undone.split(': ', 1)[-1]}\"" if undone else f"undid the change saved {v.name}")
+    remember_style(name, "changed")
+    print(f"undid in {name}: {undone.split(': ', 1)[-1] if undone else 'the last saved change'} (back to version {v.name})"
+          + (f"\nPROBLEM: {'; '.join(bad)}" if bad else ""))
+    return 0
+
+
+def contact_sheet(video: str | None) -> int:
+    """One picture of a reference reel: 2 frames a second, 8 across, to read its captions, zooms and graphics from."""
+    if not video:
+        die("which video? kit style sheet <reel.mp4>")
+    src = Path(video).expanduser().resolve()
+    if not src.is_file():
+        die(f"video not found: {src}")
+    out = WORK / "_refs" / f"{re.sub(r'[^A-Za-z0-9_-]+', '-', src.stem)[:40]}_sheet.jpg"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", "fps=2,scale=270:-1,tile=8x4", "-frames:v", "1", str(out)],
+                       env=env(), capture_output=True, text=True)
+    if r.returncode or not out.exists():
+        die(f"couldn't read that video: {r.stderr.strip()[-300:]}")
+    print(f"sheet: {out}")
+    return 0
 
 
 def style_import(old: Path) -> int:
@@ -759,7 +881,8 @@ def style_preview(name: str, clip: str | None, quiet: bool = False) -> int:
     if clip:
         src = Path(clip).expanduser().resolve()
     else:
-        jobs = sorted(WORK.glob("*/edl.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        jobs = [p for p in sorted(WORK.glob("*/edl.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+                if (p.parent / json.load(open(p))["source"]).exists()]   # a clip on an ejected card can't be previewed
         if not jobs:
             die("no clip to preview on yet: give one with --clip")
         e = json.load(open(jobs[0]))
@@ -815,7 +938,8 @@ def sample_job(tag: str, clip: str | None, seconds: float = 3.0, extra: dict | N
     if clip:
         src = Path(clip).expanduser().resolve()
     else:
-        jobs = [p for p in sorted(WORK.glob("*/edl.json"), key=lambda p: p.stat().st_mtime, reverse=True) if not p.parent.name.startswith("_")]
+        jobs = [p for p in sorted(WORK.glob("*/edl.json"), key=lambda p: p.stat().st_mtime, reverse=True) if not p.parent.name.startswith("_")
+                and (p.parent / json.load(open(p))["source"]).exists()]
         if not jobs:
             die("no clip to try it on yet: draft a clip first, or give one with --clip")
         src = (jobs[0].parent / json.load(open(jobs[0]))["source"]).resolve()
@@ -927,11 +1051,12 @@ def main() -> int:
     sp.add_parser("doctor"); sp.add_parser("version")
     t = sp.add_parser("transcribe"); t.add_argument("clip")
     d = sp.add_parser("draft"); d.add_argument("clip"); d.add_argument("--style"); d.add_argument("--name"); d.add_argument("--long", action="store_true")
+    d.add_argument("--replace", action="store_true")
     r = sp.add_parser("render"); r.add_argument("job")
     pv = sp.add_parser("preview"); pv.add_argument("jobs", nargs="*"); pv.add_argument("--port", type=int, default=3101)
     pv.add_argument("--rebuild", action="store_true"); pv.add_argument("--open", action="store_true"); pv.add_argument("--stop", action="store_true")
     q = sp.add_parser("qa"); q.add_argument("video"); q.add_argument("--job")
-    s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "preview", "import"])
+    s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet"])
     s.add_argument("name", nargs="?"); s.add_argument("pairs", nargs="*"); s.add_argument("--as", dest="as_name"); s.add_argument("--clip")
     s.add_argument("--from", dest="base")
     g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
@@ -942,6 +1067,7 @@ def main() -> int:
     u = sp.add_parser("deps"); u.add_argument("action", choices=["status", "check", "rollback"])
     rp = sp.add_parser("report"); rp.add_argument("--note", default=""); rp.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    os.environ["PATH"] = env()["PATH"]   # Homebrew's ffmpeg-full is keg-only: every module and helper must find it
     if a.cmd == "report":
         return report.send(a.note, kit_version(), hfm().hf_version(), dry=a.dry_run)
     if a.cmd not in ("version", "deps", "update", "prepare"):

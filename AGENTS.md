@@ -20,6 +20,7 @@ Chrome and a local Studio server. Always call it as `bin/kit`, so the rule appli
 | "send Mitchell a report", "tell Mitchell this is broken" | `bin/kit report --note "<what he was doing, in his words>"` (below) |
 
 ## One way to edit, every time
+0. **Clips he drops into the chat** (attached videos, or a path he pastes) count the same as clips in `inbox/`: first copy each one into `inbox/` keeping its file name (`cp "<path>" inbox/`; add `-2` before the extension if that name is taken), tell him "copied to inbox", then edit the copies. "Edit these" means the ones he just dropped; "edit everything in inbox" includes them too. A reference reel for a style is the exception: it never goes in `inbox/` (skills/style).
 1. `bin/kit draft <clip> [--style <name>] [--name <job>] [--long]` makes `.work/<job>/` with `edl.json` (the plan) and `TRANSCRIPT.txt`.
 2. You review and fix the plan (skills/edit-short step 3, or skills/long-form). That is the only part that needs judgment.
 3. `bin/kit preview <job> [<job> ...]` opens each job in HyperFrames Studio: he watches the whole edit live before anything renders. Give him the link it prints. His open tab reloads by itself after every change.

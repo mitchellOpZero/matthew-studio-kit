@@ -12,4 +12,4 @@ Matthew's look for long-form YouTube (16:9). Same rules as `matthew`, sized for 
 - Never: graphics that just repeat his last few words; music; stacked sound effects.
 
 ## Changes Matthew asked for
-(Codex adds a dated line here each time he changes this style.)
+(A dated line is added here each time he changes this style; undo reads the newest one.)

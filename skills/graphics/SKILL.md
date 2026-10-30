@@ -9,7 +9,7 @@ Three kinds, all drawn by HyperFrames on the same timeline as his video, all vis
 
 ## 1. The kit's own graphics
 `bin/kit graphics list`:
-- **logo_pop**: an app logo on a white tile. `kit draft` places YouTube/Instagram ones itself when the style has `logos.enabled`. More logos: put the PNG in `assets/logos/`.
+- **logo_pop**: an app logo on a white tile. `kit draft` places YouTube/Instagram ones itself when the style has `logos.enabled`. More logos: put the brand's own PNG in `assets/logos/` (rules in `assets/logos/README.md`).
 - **picture**: a still from his library on a white rounded card (skills/library).
 - **text_card**: a short line on his highlight colour, near the top. Only for a line that adds something he doesn't say word for word.
 Each manifest's `plan` line shows exactly what to put in `edl.json`. `bin/kit graphics test <name>` must print OK; look at the still it prints.
@@ -26,7 +26,7 @@ Ready-made animated pieces from HyperFrames: chat and app mock-ups (iMessage-sty
 
 ## 3. A new graphic he asks for
 Build it inside his style (skills/style, "Building something new"), as a block-style HTML file:
-1. Start from the closest library block (`bin/kit blocks search`), or from scratch. Put it in `my-styles/<style>/templates/<name>/<name>.html` (a HyperFrames composition: a root `data-composition-id`, `data-width`, `data-height`, `data-duration`, and one paused GSAP timeline registered as `window.__timelines["<id>"]`). Every animation must come from that timeline (no timers, no random values, no network), so every frame renders the same every time.
+1. Start from the closest library block (`bin/kit blocks search`), or from scratch. Run `bin/kit style snapshot <style>` first, then put it in `my-styles/<style>/templates/<name>/<name>.html` (a HyperFrames composition: a root `data-composition-id`, `data-width`, `data-height`, `data-duration`, and one paused GSAP timeline registered as `window.__timelines["<id>"]`). Every animation must come from that timeline (no timers, no random values, no network), so every frame renders the same every time.
 2. Use his colours and font: `highlight_color` and `font_file` from his style.json.
    Images it needs go in that folder's `assets/` and are referenced as `assets/<file>`.
 3. `bin/kit blocks test <name> --style <style>` must print OK. Look at the still. The plan then uses it like any block: `"blocks": [{"name": "<name>", ...}]` (his own block wins over a library block with the same name). A graphic every style should have goes in `graphics/<name>/<name>.html` instead.
