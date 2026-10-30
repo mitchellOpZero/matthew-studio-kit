@@ -494,8 +494,9 @@ def finish_render(mp4: Path, job: Path) -> int:
         return 0
     global LAST_ERROR
     try:
-        fails = [x.strip() for x in (job / "out" / "qa" / "QA-REPORT.md").read_text().splitlines() if x.strip().startswith("FAIL")]
-    except OSError:
+        items = json.load(open(job / "out" / "qa" / "qa.json"))["items"]
+        fails = [f"{i['check']} at {i['start'] if i['start'] is not None else '-'}s: {i['msg']}" for i in items if i["sev"] == "FAIL"]
+    except (OSError, ValueError, KeyError):
         fails = []
     LAST_ERROR = f"QA FAIL on {job.name}: " + (" | ".join(fails[:5]) or "see QA-REPORT.md")
     print(f"FAIL -> fix the flags in {job / 'out' / 'qa' / 'QA-REPORT.md'}, then kit render {job.name} again (max 2 rounds).")
