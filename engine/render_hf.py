@@ -375,8 +375,35 @@ def build(edl_path, force=False):
 
 
 def check(proj):
-    r = subprocess.run(hf() + ["check", proj], capture_output=True, text=True, env=env())
-    return r.returncode, (r.stdout + r.stderr)
+    """HyperFrames' check, except that a caption word's colour against the footage behind it is a note, not a failure.
+    Its contrast test ignores the caption outline and depends on what happens to be behind the word in the sampled
+    frames, so it would block his approved keyword colour on one clip and pass it on the next. The colour is the style's
+    call (skills/style: look at the still)."""
+    r = subprocess.run(hf() + ["check", "--json", proj], capture_output=True, text=True, env=env())
+    try:
+        d = json.loads(r.stdout)
+    except ValueError:
+        return r.returncode, (r.stdout + r.stderr)
+    errors, notes, total = [], [], 0
+    for part, res in d.items():
+        if not isinstance(res, dict) or not isinstance(res.get("findings"), list):
+            continue
+        total += res.get("errorCount") or 0
+        for f in res["findings"]:
+            sel = str(f.get("selector", ""))
+            line = f"{part}: {f.get('code')} {sel} t={f.get('time', '')}: {f.get('message', '')} {f.get('fixHint', '')}".strip()
+            if f.get("severity") != "error":
+                continue
+            if part == "contrast" and sel.startswith("#w"):
+                notes.append(f"note, caption colour: \"{f.get('text', '')}\" {f.get('fg')} on {f.get('bg')} is {f.get('ratio')}:1 "
+                             f"at {f.get('time')}s (outline not counted); a brighter option is {f.get('suggestedColor')}")
+            else:
+                errors.append(line)
+    failed = bool(errors) or total > len(notes) or (not d.get("ok") and not notes)
+    log = "\n".join(errors + notes) or "check passed"
+    if failed and not errors:
+        log = (r.stdout + r.stderr)[-3000:]
+    return (1 if failed else 0), log
 
 
 def running(proj):

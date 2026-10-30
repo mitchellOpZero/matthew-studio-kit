@@ -495,6 +495,8 @@ def cmd_preview(a) -> int:
         if code:
             print(log[-2000:])
             die(f"{job.name}: hyperframes check failed (above). Fix {proj}/index.html, then kit preview {job.name} again.")
+        if "note, caption colour" in log:
+            print(f"{job.name}: {log}")
         url, started = render_hf.preview(proj, a.port + i)
         print(f"{job.name}: {url}  ({status}; {'new Studio tab' if started else 'open tab reloads'})")
         if started and a.open:   # only a brand-new server gets a tab, and only when asked for
@@ -775,6 +777,8 @@ def style_preview(name: str, clip: str | None, quiet: bool = False) -> int:
     code, log = hfr.check(proj)
     if code:
         die(f"the style doesn't draw cleanly:\n{log[-1500:]}")
+    if "note, caption colour" in log:
+        print(log)
     shots = hfr.snapshot(proj, [1.5])
     (job / "out").mkdir(exist_ok=True)
     still = job / "out" / f"preview-{name}.jpg"
