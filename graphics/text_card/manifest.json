@@ -1,0 +1,7 @@
+{
+  "name": "text_card",
+  "description": "A short line (a number, a rule, a punch line) on the style's highlight colour, popped in near the top, faded out. Size, colour and height come from the style's graphic settings.",
+  "plan": "graphics: {\"text\": \"3 DATES A WEEK\", \"at\": s, \"dur\": 1.2}. Only for a line that adds something he doesn't say word for word",
+  "test": {"graphics": [{"text": "3 DATES A WEEK", "at": 0.5, "dur": 2.0}]},
+  "test_at": [0.55, 1.5]
+}

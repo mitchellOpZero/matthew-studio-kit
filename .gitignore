@@ -1,0 +1,13 @@
+.venv/
+.cache/
+.work/
+done/*
+!done/.gitkeep
+inbox/*
+!inbox/.gitkeep
+graphics/*/out/
+__pycache__/
+*.pyc
+my-styles/
+library/*
+!library/README.md

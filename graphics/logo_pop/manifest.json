@@ -1,0 +1,29 @@
+{
+  "name": "logo_pop",
+  "description": "App logo on a white rounded tile that pops in (35 -> 110 -> 100 % over 7 frames) and holds; for when he names YouTube, Instagram, Hinge...",
+  "plan": "overlays: {\"template\": \"logo_pop\", \"props\": {\"logo\": \"assets/logos/<file>.png\"}, \"at\": s, \"dur\": s, \"x\": 540, \"y\": 1180}. kit draft places YouTube/Instagram ones itself when the style has logos.enabled",
+  "test": {
+    "overlays": [
+      {
+        "template": "logo_pop",
+        "props": {
+          "logo": "assets/logos/youtube_icon_red.png"
+        },
+        "at": 0.5,
+        "dur": 2.0,
+        "x": 540,
+        "y": 1180
+      }
+    ],
+    "caption_hide": [
+      [
+        0.4,
+        2.6
+      ]
+    ]
+  },
+  "test_at": [
+    0.55,
+    1.5
+  ]
+}

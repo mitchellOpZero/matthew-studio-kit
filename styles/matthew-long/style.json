@@ -1,0 +1,49 @@
+{
+  "_about": "Matthew's long-form (16:9 YouTube). Same look as matthew, sized for a landscape frame: one line of up to 4 words in the lower third, crimson keywords as spoken, a punch-in about every 4 s, his voice only at -14 LUFS.",
+  "font": "Montserrat ExtraBold",
+  "font_file": "Montserrat-ExtraBold.ttf",
+  "font_size_frac": 0.072,
+  "color": "#FFFFFF",
+  "highlight_color": "#DC143C",
+  "stroke_color": "#000000",
+  "stroke": 7,
+  "shadow": 2,
+  "center_y_frac": 0.84,
+  "uppercase": false,
+  "one_line": true,
+  "max_words": 4,
+  "max_chars": 24,
+  "min_chunk_s": 0.22,
+  "gap_break_s": 0.35,
+  "kw_sync_pop": true,
+  "kw_pop_pct": 0,
+  "keyword_scale": 1.0,
+  "pop_scale": 1.06,
+  "pop_ms": 150,
+  "punch": {
+    "every_s": 4.0,
+    "zoom_wide": 1.0,
+    "zoom_tight": 1.12,
+    "even": true,
+    "max_s": 4.0,
+    "anchor_y": 0.35,
+    "min_piece_s": 0.8
+  },
+  "xfade_ms": 12,
+  "end_fade_s": 0.15,
+  "loudness": {
+    "I": -14,
+    "TP": -1.5,
+    "LRA": 11
+  },
+  "logos": {
+    "enabled": true,
+    "youtube": "assets/logos/youtube_icon_red.png",
+    "instagram": "assets/logos/Instagram_Glyph_Gradient.png"
+  },
+  "music": {
+    "enabled": false
+  },
+  "sfx_on_graphics": false,
+  "shape": "16:9"
+}

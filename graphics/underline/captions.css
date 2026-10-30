@@ -1,0 +1,3 @@
+      .capin .w.kw { position: relative; }
+      .capin .ul { position: absolute; left: 0; right: 0; overflow: hidden; -webkit-text-stroke: 0; }
+      .capin .ul > i { position: absolute; inset: 0; }

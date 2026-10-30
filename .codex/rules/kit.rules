@@ -1,0 +1,5 @@
+# Lets the kit's own commands run outside Codex's sandbox. HyperFrames previews and renders start a headless Chrome and a
+# local Studio server, which the macOS sandbox blocks. Only bin/kit is allowed, nothing else. Codex reads this when the
+# kit folder is a trusted project.
+prefix_rule(pattern=["bin/kit"], decision="allow")
+prefix_rule(pattern=["./bin/kit"], decision="allow")

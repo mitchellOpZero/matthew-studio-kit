@@ -1,0 +1,7 @@
+{
+  "name": "underline",
+  "kind": "captions",
+  "description": "Caption design: keywords stay white and a thick bar in the style's highlight colour slides in under each one as he says it, then holds until the caption ends.",
+  "plan": "a style setting, not a plan entry: \"caption_template\": \"underline\" (optional: underline_thickness_px 12, underline_gap_px 4, underline_slide_ms 120)",
+  "example": "how to write a caption design: captions.css styles the words, captions.js adds timed animations to tl. Each caption: {el, t0, words: [{el, at, hot, text}]}; times are seconds on the video's timeline."
+}

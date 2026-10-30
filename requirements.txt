@@ -1,0 +1,9 @@
+# The floor: versions tested on Oct 28, 2026. engine/deps.py moves to newer ones (same major) on its own after testing them.
+faster-whisper==1.2.1
+ctranslate2==4.8.4
+av==19.0.2
+onnxruntime==1.31.1
+numpy==2.5.4
+pillow==13.0.0
+pyobjc-framework-Vision==12.2.2; sys_platform == "darwin"
+pyobjc-framework-Cocoa==12.2.2; sys_platform == "darwin"
