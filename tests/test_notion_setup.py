@@ -94,6 +94,17 @@ class SetupPlanTests(unittest.TestCase):
         guard = src[src.index(call) - 200: src.index(call)]
         self.assertIn('(st.get("broll") or {}).get("auto")', guard)
 
+    def test_logo_pops_only_for_apps_with_a_file(self):
+        sys.path.insert(0, str(KIT / 'engine'))
+        import kit
+        words = [{'w': w, 'start': i * 0.5, 'end': i * 0.5 + 0.4} for i, w in enumerate(['on', 'Snapchat', 'and', 'Hinge', 'TikTok'])]
+        edl = {}
+        kit.add_logo_overlays(edl, words, {'logos': {'enabled': True}}, KIT)
+        brands = [h['brand'] for h in edl['_logo_hits']]
+        self.assertIn('snapchat', brands)
+        self.assertIn('tiktok', brands)
+        self.assertEqual('hinge' in brands, (KIT / 'assets/logos/hinge.png').is_file())
+
 
 if __name__ == '__main__':
     unittest.main()

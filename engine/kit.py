@@ -76,7 +76,8 @@ there here now not no just very really still also even only too much many more m
 such same like well about into over up down out if as because though yeah okay um uh i'm you're it's that's we're they're
 we'll you'll i'll let's""".split())
 FILLERS = {"um", "uh", "er", "erm", "hmm", "uhm", "umm"}
-BRANDS = {"youtube": "youtube", "instagram": "instagram"}
+BRANDS = {"youtube": "youtube", "instagram": "instagram", "snapchat": "snapchat", "tiktok": "tiktok",
+          "hinge": "hinge", "tinder": "tinder", "bumble": "bumble"}   # a logo pops only when assets/logos has its file
 
 
 def style_dir(name: str) -> Path:
@@ -556,13 +557,15 @@ def restart_hints(clip: Path) -> list[dict]:
 
 
 def add_logo_overlays(edl: dict, words: list[dict], st: dict, job: Path) -> None:
-    """Logo tiles once, the first time he says YouTube / Instagram in the first 10 s (output time computed after cuts)."""
+    """Logo tiles once, the first time he names an app with a logo file (YouTube, Instagram, Snapchat, TikTok...) in the first 10 s."""
     hits = []
     for w in words:
         n = norm(w["w"])
         if n in BRANDS and float(w["start"]) <= 10 and n not in [h[0] for h in hits]:
             hits.append((n, float(w["start"])))
-    edl["_logo_hits"] = [{"brand": n, "source_t": t, "logo": (st.get("logos") or {}).get(n, f"assets/logos/{n}.png")} for n, t in hits]
+    logos = st.get("logos") or {}
+    edl["_logo_hits"] = [{"brand": n, "source_t": t, "logo": logos.get(n, f"assets/logos/{n}.png")} for n, t in hits
+                         if (KIT / logos.get(n, f"assets/logos/{n}.png")).is_file()]
 
 
 def output_time(edl: dict, t: float) -> float | None:
