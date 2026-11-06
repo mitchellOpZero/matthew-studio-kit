@@ -77,6 +77,16 @@ class SetupPlanTests(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(json.loads(out.stdout)['command'], 'setup_content_hub')
 
+    def test_pull_reads_attached_style_file(self):
+        layout = ni.detect(dict(HUB, roles={'styles': {'database_id': 'db', 'schema': {'Name': {'type': 'title'}, 'Files & media': {'type': 'files'}}}}))
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / 'matthew.style.json'
+            f.write_text('{"highlight_color": "#dc143c", "font_size_frac": 0.093, "_about": "x"}')
+            out = ni.import_style(layout, dict(HUB, title='matthew', body='', files=[{'name': f.name, 'path': str(f)}]), Path(d) / 'my-styles' / 'matthew')
+            data = json.loads(Path(out['path']).read_text())
+        self.assertEqual(data['highlight_color'], '#dc143c')
+        self.assertNotIn('_about', data)
+
 
 if __name__ == '__main__':
     unittest.main()

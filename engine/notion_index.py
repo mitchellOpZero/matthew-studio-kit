@@ -465,7 +465,16 @@ def import_style(layout, page, dest, *, workspace_id=None, hub_id=None):
         raise ValueError('refusing import: workspace does not match the authorized Content hub')
     if page.get('hub_id') and not same_hub_id(page['hub_id'], hub):
         raise ValueError('refusing import: hub does not match the authorized Content hub')
-    data = page['style'] if isinstance(page.get('style'), dict) else _style_from_body(page.get('body') or '')
+    if isinstance(page.get('style'), dict):
+        data = page['style']
+    elif (page.get('body') or '').strip():
+        data = _style_from_body(page['body'])
+    else:   # a Styles row with the style file attached instead of pasted into the page
+        attached = next((f.get('path') for f in page.get('files') or []
+                         if str(f.get('path') or f.get('name') or '').endswith('.json') and f.get('path')), None)
+        if not attached or not Path(attached).expanduser().is_file():
+            raise ValueError('style page has no body and no downloaded .json file to import')
+        data = _style_from_body(Path(attached).expanduser().read_text())
     data = {k: v for k, v in data.items() if not str(k).startswith('_')}
     folder = Path(dest).expanduser()
     folder.mkdir(parents=True, exist_ok=True)
