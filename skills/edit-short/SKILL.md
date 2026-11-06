@@ -14,7 +14,7 @@ For a 16:9 long-form video, follow skills/long-form instead.
 - Job name: short, lowercase, e.g. `coaching-gap-15s`.
 - If it says a job with that name already exists, pick another name. Use `--replace` only when he wants that edit started over (it drops its plan and his hand edits in Studio).
 
-It writes `.work/<job>/edl.json` (cuts with pauses and fillers already removed, keywords, logos) and `.work/<job>/TRANSCRIPT.txt` (one word per line with its time in the clip).
+It writes `.work/<job>/edl.json` (cuts with pauses and fillers already removed, keywords, logos, and b-roll from his library when a clip's name or tags match a keyword) and `.work/<job>/TRANSCRIPT.txt` (one word per line with its time in the clip). When the kept edit is longer than about 16 seconds it also writes `.work/<job>-15s/` with a vertical cut of about 15 seconds beside it.
 
 ## 2. Read
 Read the style's `STYLE.md` (`my-styles/<style>/` if he has his own copy, else `styles/<style>/`: the look and its per-video rules), then `TRANSCRIPT.txt` (restarts heard are listed at the top) and `edl.json`. `cuts` are the kept pieces, in source seconds: `{"in": s, "out": s}`.
@@ -53,6 +53,9 @@ Edit `.work/<job>/edl.json` only.
   - Text over a face or in the button zone: set `caption_y_frac` in the plan, or move the picture/block.
   - Caption problems: fix keywords or caption_breaks.
   Preview and render again. Two fix rounds at most, then stop and report what is still failing.
+
+## Trim in CapCut
+`bin/kit capcut <job>` writes `.work/<job>/capcut/` (draft_content.json). It is the cut video only, so he can open it in CapCut and trim. It does not write captions.
 
 ## 6. Report
 Give him the `done/` path, the length, the QA verdict, what you cut (retakes, pauses), and the keywords. Offer to change the look (skills/style) or edit another clip. `bin/kit preview --stop` closes Studio when he's finished.

@@ -99,6 +99,95 @@ def _length(rel):
         return "length unknown"
 
 
+def _tokens(text):
+    return set(re.findall(r"[a-z0-9]+", (text or "").lower()))
+
+
+def _notion_broll():
+    """Clips already indexed from the authorized hub. Missing index means nothing to place."""
+    path = os.path.join(os.path.expanduser("~"), ".matthew-studio-kit", "notion_index.json")
+    alt = os.environ.get("KIT_NOTION_INDEX")
+    found = []
+    for candidate in (alt, path):
+        if not candidate or not os.path.isfile(candidate):
+            continue
+        try:
+            data = json.load(open(candidate))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for entry in (data.get("entries") or {}).values():
+            if entry.get("stale") or entry.get("exclude"):
+                continue
+            if entry.get("role") != "broll" and entry.get("kind") != "broll":
+                continue
+            file_path = entry.get("path") or ""
+            if not file_path:
+                continue
+            tags = entry.get("explicit_tags") or []
+            title = entry.get("title") or entry.get("file_name") or ""
+            found.append({"file": file_path, "name": title, "tags": tags,
+                          "hay": _tokens(" ".join([title, " ".join(tags), entry.get("file_name") or ""]))})
+        break
+    return found
+
+
+def broll_candidates():
+    """Local library clips first, then the Notion index if one has been built on this Mac."""
+    found = []
+    for it in load().get("items") or []:
+        if it.get("type") != "broll" or not it.get("file"):
+            continue
+        tags = it.get("tags") or []
+        name = it.get("name") or ""
+        found.append({"file": it["file"], "name": name, "tags": tags,
+                      "hay": _tokens(" ".join([name, " ".join(tags), it["file"]]))})
+    found.extend(_notion_broll())
+    return found
+
+
+def select_broll(words, keywords, cuts, limit=4, dur=2.0):
+    """Put matching library clips on the keyword lines. No match, or an empty library, leaves the list empty."""
+    cands = broll_candidates()
+    if not cands or not cuts or not keywords:
+        return []
+
+    def output_time(t):
+        acc = 0.0
+        for c in cuts:
+            if c["in"] <= t <= c["out"]:
+                return acc + (t - c["in"])
+            if t < c["in"]:
+                return None
+            acc += c["out"] - c["in"]
+        return None
+
+    used, placed = set(), []
+    for key in keywords:
+        q = _tokens(key)
+        if not q:
+            continue
+        spoke = next((w for w in words if q <= _tokens(w.get("w") or "")), None)
+        if not spoke:
+            continue
+        best, score = None, 0
+        for cand in cands:
+            if cand["file"] in used:
+                continue
+            hit = len(q & cand["hay"])
+            if hit > score:
+                best, score = cand, hit
+        if not best:
+            continue
+        at = output_time(float(spoke.get("start", spoke.get("s", 0))))
+        if at is None or any(abs(p["at"] - at) < dur - 0.05 for p in placed):
+            continue
+        placed.append({"file": best["file"], "at": round(at, 3), "dur": dur, "from": 0.0})
+        used.add(best["file"])
+        if len(placed) >= limit:
+            break
+    return placed
+
+
 def list_items(words="", kind=None):
     idx = load()["items"]
     ws = [w for w in re.findall(r"[a-z0-9]+", words.lower())]

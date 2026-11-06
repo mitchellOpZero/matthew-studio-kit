@@ -30,24 +30,25 @@ class GapTests(unittest.TestCase):
         cuts = kit.draft_cuts(words)
         span = cuts[-1]["out"] - cuts[0]["in"]
         self.assertGreater(span, 15)
-        self.assertNotIn("def cut_to_short", (ROOT / "engine" / "kit.py").read_text())
 
     def test_no_capcut_exporter(self):
-        """No CapCut project writer, and no CapCut caption path. Trim-export remains a gap."""
-        found = []
-        for folder in ("engine", "skills", "docs", "graphics"):
-            for path in (ROOT / folder).rglob("*"):
-                if path.is_file() and "capcut" in path.name.lower():
-                    found.append(str(path.relative_to(ROOT)))
-                elif path.suffix in {".py", ".md", ".json", ".js"} and path.is_file():
-                    if "capcut" in path.read_text(errors="ignore").lower():
-                        found.append(str(path.relative_to(ROOT)))
-        self.assertEqual(found, [])
+        """The CapCut draft is a video timeline. It must not carry a caption track."""
+        import capcut_export
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d) / "clip.mp4"
+            src.write_bytes(b"x")
+            folder = capcut_export.export_project(
+                {"name": "demo", "cuts": [{"in": 0.0, "out": 2.0}], "output": {"w": 1080, "h": 1920, "fps": 30}},
+                src, Path(d) / "out")
+            draft = json.loads((folder / "draft_content.json").read_text())
+        self.assertEqual(draft["materials"]["texts"], [])
+        self.assertTrue(draft["tracks"])
+        self.assertTrue(all(track["type"] == "video" for track in draft["tracks"]))
 
     def test_style_upload_does_not_round_trip_style_json(self):
         """Uploading a style file plans one create. It does not read style.json or write Notion."""
-        self.assertFalse(hasattr(ni, "import_style"))
-        self.assertFalse(hasattr(ni, "push_style"))
+        self.assertTrue(hasattr(ni, "import_style"))
+        self.assertTrue(hasattr(ni, "push_style"))
         with tempfile.TemporaryDirectory() as d:
             style = Path(d) / "look.json"
             style.write_text(json.dumps({"font_size_frac": 0.08, "highlight_color": "#DC143C"}))

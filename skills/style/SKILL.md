@@ -28,6 +28,9 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
    - "Go back to how it was yesterday": `bin/kit style versions <style>`, then `bin/kit style restore <style> <the first version stamped today>` (each version is the style as it was just before that save). If nothing is stamped today, nothing changed since yesterday.
    - A restore is itself a change, so `bin/kit style undo` takes it back.
 
+## Notion Styles
+`bin/kit style push <name>` prints a plan whose body is that style's `style.json`, for the Styles database on the Content page authorized in this session. It does not call Notion. Codex applies the plan only when the workspace and hub still match. `bin/kit style pull <page.json> --as <name>` writes the page's style JSON into `my-styles/<name>/style.json`. A different workspace or hub is refused.
+
 ## Settings (style.json); combine freely
 Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0.7}`. Dotted keys reach inside: `punch.zoom_tight=1.25`.
 - **Caption size and place**

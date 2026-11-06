@@ -40,6 +40,8 @@ Writes are allowed only for the hub this session recorded (`workspace_id` and `h
 
 Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it.
 
+Draft places b-roll on its own when a library clip's name or tags share a keyword with the transcript. `edl.json` `broll` stays empty when nothing matches. You can still move or replace those picks.
+
 ## Add a file he hands you
 
 Local copy, for the edit: `bin/kit library add <file> --type broll|picture|sfx --name "<what he calls it>" [--tags a,b]`. iPhone HEIC pictures become PNG. HTML and SVG can be `--type picture`.

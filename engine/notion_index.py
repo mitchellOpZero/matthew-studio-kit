@@ -388,6 +388,93 @@ UPLOAD_EXT = {
 }
 
 
+def _require_hub(layout, workspace_id=None, hub_id=None):
+    """The only hub a style push may name. Raises if this session never recorded one, or the caller names another."""
+    if not isinstance(layout, dict):
+        raise ValueError('layout config missing; configure the authorized Content hub first')
+    authorized_workspace, authorized_hub = layout.get('workspace_id'), layout.get('hub_id')
+    if not authorized_workspace or not authorized_hub or layout.get('asset_upload') != 'authorized_hub':
+        raise ValueError('no authorized Content hub in this session; configure that page before uploading')
+    if workspace_id is not None and not same_hub_id(workspace_id, authorized_workspace):
+        raise ValueError('refusing upload: workspace does not match the authorized Content hub')
+    if hub_id is not None and not same_hub_id(hub_id, authorized_hub):
+        raise ValueError('refusing upload: hub does not match the authorized Content hub')
+    return authorized_workspace, authorized_hub
+
+
+def _style_object(path):
+    data = json.loads(Path(path).expanduser().read_text())
+    if not isinstance(data, dict):
+        raise ValueError('style file must be a JSON object')
+    return {k: v for k, v in data.items() if not str(k).startswith('_')}
+
+
+def _style_from_body(body):
+    text = (body or '').strip()
+    if not text:
+        raise ValueError('style page has no body to import')
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r'\{.*\}', text, re.S)
+        if not match:
+            raise ValueError('style page body is not JSON')
+        data = json.loads(match.group(0))
+    if not isinstance(data, dict) or not any(k in data for k in ('font_size_frac', 'highlight_color', 'punch', 'font', 'loudness')):
+        raise ValueError('page body is not a style file')
+    return {k: v for k, v in data.items() if not str(k).startswith('_')}
+
+
+def push_style(layout, style_path, *, title=None, workspace_id=None, hub_id=None):
+    """Plan one Styles-database page whose body is the local style.json. Does not call Notion.
+
+    notion_writeback on the layout stays false (sort tags and QA never push). This plan is a style
+    file only, and only when workspace and hub match the Content page authorized in this session.
+    """
+    ws, hub = _require_hub(layout, workspace_id, hub_id)
+    configured = (layout.get('roles') or {}).get('styles')
+    if not configured or not configured.get('database_id') or not configured.get('title_property'):
+        raise ValueError('styles role is not mapped on the authorized hub')
+    path = Path(style_path).expanduser()
+    if not path.is_file():
+        raise ValueError('no file ' + str(style_path))
+    data = _style_object(path)
+    name = plain_title(title or path.parent.name)
+    if not name:
+        raise ValueError('title required')
+    return {'command': 'push_style_to_authorized_hub', 'notion_writeback': True, 'write_performed': False,
+            'scope': 'authorized_hub', 'workspace_id': ws, 'hub_id': hub, 'role': 'styles',
+            'database_id': configured['database_id'], 'data_source_id': configured.get('data_source_id'),
+            'title': name, 'local_file': str(path.resolve()),
+            'properties': {configured['title_property']: name},
+            'files_property': configured.get('files_property'),
+            'body': json.dumps(data, indent=2, ensure_ascii=False), 'style': data,
+            'schema_columns_added': [],
+            'instruction': 'Create or update one page in this Styles database only if its workspace and parent hub '
+                           'still match workspace_id and hub_id. Set only the title property. Put body on the page '
+                           'as the style JSON and attach local_file to files_property when that property exists. '
+                           'Do not add columns. Do not write anywhere else.'}
+
+
+def import_style(layout, page, dest, *, workspace_id=None, hub_id=None):
+    """Write style.json from a page export. Refuses a different workspace or hub. Does not call Notion."""
+    ws, hub = _require_hub(layout, workspace_id if workspace_id is not None else page.get('workspace_id'),
+                           hub_id if hub_id is not None else page.get('hub_id'))
+    if page.get('workspace_id') and not same_hub_id(page['workspace_id'], ws):
+        raise ValueError('refusing import: workspace does not match the authorized Content hub')
+    if page.get('hub_id') and not same_hub_id(page['hub_id'], hub):
+        raise ValueError('refusing import: hub does not match the authorized Content hub')
+    data = page['style'] if isinstance(page.get('style'), dict) else _style_from_body(page.get('body') or '')
+    data = {k: v for k, v in data.items() if not str(k).startswith('_')}
+    folder = Path(dest).expanduser()
+    folder.mkdir(parents=True, exist_ok=True)
+    out = folder / 'style.json'
+    tmp = out.with_suffix('.json.tmp')
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    tmp.replace(out)
+    return {'path': str(out), 'notion_writeback': False, 'write_performed': False, 'imported': True}
+
+
 def upload_plan(layout, *, role, title, local_file, workspace_id=None, hub_id=None, origin=None):
     """Plan one create inside the Content hub this session recorded. Does not call Notion.
 
