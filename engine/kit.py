@@ -297,12 +297,21 @@ def load_words(p: Path) -> list[dict]:
 
 
 def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> list[dict]:
-    """Keep every word; drop pauses longer than `pause` and filler words. Retakes are Codex's call (see the skill)."""
+    """Keep every word; drop pauses longer than `pause` and filler words. Retakes are Codex's call (see the skill).
+
+    A filler always splits the cut, even when the words on either side are close. Padding
+    stays outside the word and outside the filler, so a cut never starts or ends inside a word.
+    """
+    fillers = [w for w in words if norm(w["w"]) in FILLERS]
     keep = [w for w in words if norm(w["w"]) not in FILLERS]
+
+    def filler_between(a: float, b: float) -> bool:
+        return any(float(f["start"]) < b - 1e-4 and float(f["end"]) > a + 1e-4 for f in fillers)
+
     cuts, cur = [], None
     for w in keep:
         s, e = float(w["start"]), float(w["end"])
-        if cur and s - cur["out"] <= pause:
+        if cur and not filler_between(cur["out"], s) and s - cur["out"] <= pause:
             cur["out"] = e
         else:
             if cur:
@@ -310,18 +319,20 @@ def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> lis
             cur = {"in": s, "out": e}
     if cur:
         cuts.append(cur)
-    dropped = [w for w in words if norm(w["w"]) in FILLERS]
     out = []
     for c in cuts:
         lo, hi = c["in"] - pad, c["out"] + pad
-        # padding never reaches into a removed filler
-        for f in dropped:
-            if f["end"] <= c["in"] and f["end"] > lo:
-                lo = float(f["end"])
-            if f["start"] >= c["out"] and f["start"] < hi:
-                hi = float(f["start"])
+        # padding never reaches into a removed filler, and never back into the word
+        for f in fillers:
+            fs, fe = float(f["start"]), float(f["end"])
+            if fe <= c["in"] and fe > lo:
+                lo = fe
+            if fs < hi and fe > c["out"]:
+                hi = min(hi, max(c["out"], fs))
         if out and lo < out[-1]["out"]:
             lo = out[-1]["out"]
+        lo = min(lo, c["in"])
+        hi = max(hi, c["out"])
         out.append({"in": round(max(0.0, lo), 3), "out": round(hi, 3)})
     return out
 

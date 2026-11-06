@@ -2,7 +2,7 @@
 """Video QA gate: checks a finished export for the problems Mitchell keeps catching by hand.
 
 Run with the kit venv (faster-whisper, Pillow, and Apple Vision on macOS or RapidOCR on Linux):
-    ./.venv/bin/python skills/video-qa/scripts/qa.py VIDEO [options]   (from the kit folder)
+    bin/kit qa VIDEO [--job JOB]    or    ./.venv/bin/python engine/qa.py VIDEO [options]
 
 Writes <out>/QA-REPORT.md, <out>/qa.json and flagged frames under <out>/flags/.
 Exit code: 0 = no FAIL, 1 = at least one FAIL, 2 = could not run.

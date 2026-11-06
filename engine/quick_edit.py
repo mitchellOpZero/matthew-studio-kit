@@ -139,6 +139,15 @@ def highlight_set(words, edl, st):
         {norm(w["w"]) for w in words} if mode == "every_word" else set())
 
 
+def _binds_left(text):
+    """A percent sign or a punctuation-only token stays with the word before it.
+
+    Otherwise a 2-word line break turns "50 %" into its own next caption ("% more").
+    """
+    t = str(text).strip()
+    return t in {"%", "‰"} or (bool(t) and not any(ch.isalnum() for ch in t))
+
+
 def caption_chunks(words, total, edl, st):
     """Output words -> caption chunks [(words, start, end)], after caption_breaks, min on-screen time and caption_hide.
     Shared by the ASS writer and the timeline, so both show exactly the same captions."""
@@ -148,11 +157,18 @@ def caption_chunks(words, total, edl, st):
     ctext = {round(float(k), 2): v for k, v in (edl.get("caption_text") or {}).items()}
     for w in words:
         if round(w.get("ss", -1), 2) in ctext: w = dict(w, w=ctext[round(w["ss"], 2)])
-        if cur and any(abs(w.get("ss", -9) - t) <= 0.03 for t in brk): chunks.append(cur); cur = []
+        stick = bool(cur) and _binds_left(w["w"])
         nl = max(1, int(st.get("lines", 1) or 1)); per = int(st.get("words_per_line") or st["max_words"])
         cap_words = per * nl if nl > 1 else st["max_words"]
-        if cur and (len(cur) >= cap_words or sum(len(x["w"]) + 1 for x in cur) + len(w["w"]) > st["max_chars"] * nl
-                    or w["s"] - cur[-1]["e"] > st["gap_break_s"] or cur[-1]["piece_end"] <= w["s"] + 1e-6 and w["s"] - cur[-1]["e"] > 0.12):
+        forced = bool(cur) and any(abs(w.get("ss", -9) - t) <= 0.03 for t in brk)
+        full = bool(cur) and (len(cur) >= cap_words or sum(len(x["w"]) + 1 for x in cur) + len(w["w"]) > st["max_chars"] * nl
+                    or w["s"] - cur[-1]["e"] > st["gap_break_s"] or cur[-1]["piece_end"] <= w["s"] + 1e-6 and w["s"] - cur[-1]["e"] > 0.12)
+        if stick and (forced or full):
+            last = cur.pop()
+            if cur:
+                chunks.append(cur)
+            cur = [last]
+        elif forced or full:
             chunks.append(cur); cur = []
         cur.append(w)
     if cur: chunks.append(cur)
