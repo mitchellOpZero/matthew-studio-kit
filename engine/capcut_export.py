@@ -86,7 +86,10 @@ def export_project(edl, source, dest, *, width=None, height=None, fps=None):
     content = json.dumps(draft, indent=2)
     (folder / "draft_content.json").write_text(content + "\n")
     (folder / "draft_info.json").write_text(content + "\n")
-    meta = {"draft_id": draft["id"], "draft_name": name, "tm_duration": cursor, "draft_fold_path": str(folder)}
+    # CapCut refuses a project whose recorded folder is not where it actually sits
+    # ("Couldn't use project: current project is from an unusual path"), so record the real one.
+    meta = {"draft_id": draft["id"], "draft_name": folder.name, "tm_duration": cursor,
+            "draft_fold_path": str(folder.resolve()), "draft_root_path": str(folder.resolve().parent)}
     (folder / "draft_meta_info.json").write_text(json.dumps(meta, indent=2) + "\n")
     return folder
 
@@ -101,4 +104,15 @@ def export_job(job_dir):
     src = Path(source)
     if not src.is_absolute():
         src = job_dir / source
-    return export_project(edl, src, job_dir / "capcut")
+    drafts = capcut_drafts_dir()
+    dest = drafts / f"kit-{job_dir.name.lstrip('_')}" if drafts else job_dir / "capcut"
+    return export_project(edl, src, dest)
+
+
+def capcut_drafts_dir():
+    """CapCut's own projects folder on this Mac, so the export shows up in CapCut's project list."""
+    override = os.environ.get("KIT_CAPCUT_DRAFTS")
+    if override:
+        return Path(override).expanduser()
+    mac = Path.home() / "Movies" / "CapCut" / "User Data" / "Projects" / "com.lveditor.draft"
+    return mac if mac.is_dir() else None

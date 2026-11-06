@@ -1234,7 +1234,7 @@ def cmd_capcut(a) -> int:
     except ValueError as exc:
         die(str(exc))
     print(f"CapCut draft: {folder}")
-    print("Video cuts only. Copy that folder into CapCut's drafts to trim. No captions were written.")
+    print("Video cuts only, no captions. Open CapCut: it's in the project list (restart CapCut if it was open).")
     return 0
 
 
