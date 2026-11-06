@@ -1,35 +1,79 @@
 ---
 name: library
-description: "His library of b-roll clips, pictures (dating-app screenshots, texts, photos) and sound effects, catalogued in his Notion database and copied into the kit for edits. Use for: sync my library, pull from Notion, add this b-roll, use the hinge screenshot, what b-roll do I have, connect Notion."
+description: "His library of b-roll, pictures and sound effects, indexed from the Notion Content page he already has. Use for: my library, Notion, Content page, refresh my library, add this b-roll, Runway, Mixkit, what b-roll do I have, upload to Notion."
 ---
 
 # His library
 
-Files live in `library/broll/`, `library/pictures/` and `library/sfx/`. `library/index.json` names and tags them. Notion is the catalogue he browses and adds to; the kit copies from it and never writes back.
+Files for an edit live in `library/broll/`, `library/pictures/` and `library/sfx/`. `library/index.json` names the local copies. His Notion Content page is the catalogue he browses. Codex reads and, when he asks, uploads into that page through the Notion connection already signed in. No new integration, no token, no Keychain entry.
+
+Read [docs/NOTION-MCP.md](../../docs/NOTION-MCP.md) and follow it. The page is the live Content hub he already has, not a copy. The one-time setup fills in what the kit needs there.
+
+## Connect his Content page (once)
+
+Tell him, in this order:
+
+1. In Notion, open the Content page he already uses (B Roll Clips, Pictures, Graphics, Styles, Videos, Posts, and the rest). Share that page with the Notion connection Codex is already signed into (••• → Connections). Do not create an integration.
+2. Paste that page's URL into Codex and say: "Use the library skill to set up my Content page and build the local index."
+
+Then you:
+
+- Run the one-time setup in docs/NOTION-MCP.md first: list the tables on that page, run `bin/kit library setup --input hub.json`, tell him in plain words what you'll create or add, and apply it only after his OK. It reuses B Roll Clips and his Graphics table and creates Pictures and Styles if they're missing. Never delete or rename anything.
+
+- Fetch only under that URL. Resolve each database's real id from that page. Do not search the whole workspace by name and take the first match.
+- Map `broll`, `graphics`, optional `pictures`, `posts`, optional `videos`, and `styles` if that database exists and already has a title and a files property. After setup every one of these has a files field. Outside setup, never add a field.
+- Save `workspace_id` and `hub_id` from that page, run `bin/kit library detect`, then the inventory, plan, and index steps in docs/NOTION-MCP.md.
+- `library sync` and `library connect` are disabled. If he says "sync my library", refresh with the MCP steps instead.
+
+## Guardrail
+
+Writes are allowed only for the hub this session recorded (`workspace_id` and `hub_id` in the layout, `asset_upload` equal to `authorized_hub`).
+
+- You may create a b-roll clip, a picture, or a style in that hub when he asks you to add one.
+- Run `bin/kit library upload <file> --role broll|pictures|styles --name "<title>" [--origin ai|stock|own|unknown]`. Apply the JSON only if the command succeeds. Fetch the destination database and confirm the workspace and parent hub still match the plan. If they do not, or you cannot tell, stop and do not write.
+- Set only the title property the plan names. Attach the file to the files property it names. Put the body text on the page. Outside the one-time setup, do not add, rename, or delete properties, do not create select options, and do not upload a poster.
+- Do not write to any other workspace, hub, or database. Do not create graphics, posts, or video-queue rows with upload.
+- Visual-sort tags and QA status stay on this Mac. `library sort writeback` and `library workflow` do not change Notion. Ignore any older phrase that asked to save tags or status back to Notion.
 
 ## Find something
-`bin/kit library list [<words>] [--type broll|picture|sfx]`, e.g. `bin/kit library list hinge`. Each line shows the path to put in a plan (`library/pictures/hinge-match.png`).
-Before an edit that needs library items, run `bin/kit library sync` first (when Notion is connected) so anything he added this week is here.
+
+`bin/kit library list [<words>] [--type broll|picture|sfx]` searches the local `library/` copies.
+`bin/kit library find "<words>" [--kind broll|graphic|picture|style] [--origin ai|stock] [--aspect vertical|horizontal|square]` searches the Notion index. Read the score, the reasons, and the provenance before you place a file.
+
+Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it.
+
+B-roll is his call. Draft leaves `broll` empty unless his style turns on automatic picks (`bin/kit style set <style> broll.auto=true`; then a clip whose name or tags share a keyword with the transcript is placed). When he asks for B-roll ("put gym b-roll when I talk about the gym", "add b-roll here"), find it with `bin/kit library find` and place it in `edl.json`.
 
 ## Add a file he hands you
-`bin/kit library add <file> --type broll|picture|sfx --name "<what he calls it>" [--tags a,b]`. iPhone HEIC pictures become PNG on the way in. If Notion is connected, tell him to also add it there so it stays in his catalogue.
 
-## Notion
-**Connect once** (needs him, in Terminal, for the secret):
-1. In Notion: Settings → Connections → Develop or manage integrations → New integration ("Studio Kit", internal, read content only). Copy its secret.
-2. Open his library database → ••• → Connections → add "Studio Kit".
-3. In Terminal (not Codex, so the secret never goes through chat): `security add-generic-password -U -s matthew-studio-kit-notion -a notion -w`, then paste the secret when it asks. It's stored in his Mac's Keychain; never ask him to paste it in chat, and never print it.
-4. `bin/kit library connect "<the database link>"`. It checks the database and says if a property is missing.
+Local copy, for the edit: `bin/kit library add <file> --type broll|picture|sfx --name "<what he calls it>" [--tags a,b]`. iPhone HEIC pictures become PNG. HTML and SVG can be `--type picture`.
 
-**The database** needs: **Name** (title), **Type** (select: B-roll, Picture or SFX), **File** (files & media: the upload, or a link), and optionally **Tags** (multi-select). One row per clip, picture or sound.
+Every local visual add writes an adjacent `.poster.png` (video at about 1 second; SVG and HTML through a local browser). The index records `poster` and `notion_cover.path` with status `local_only`. Posters are not uploaded and are not a Notion column. Set `KIT_BROWSER_PATH` if Chrome is not on the default name. A poster failure stops the ingest and leaves the copied source in place.
 
-**Sync:** `bin/kit library sync` copies new and changed rows into `library/` and lists what it skipped and why (no file yet, a file type that doesn't match its Type).
+Notion copy, when he wants it in the catalogue: upload into the authorized Content hub as above (`broll`, `pictures`, or `styles` only). Then refresh the index. Sound effects stay local.
+
+## Getting B-roll
+
+Tell him this when he asks where to get B-roll. AI or stock on a row is provenance, not a licence clearance. The kit then indexes the file like any other clip.
+
+**Runway (AI B-roll).** The kit doesn't generate clips. He makes them in Runway (its app, or a Runway plugin if he has one connected), downloads the MP4, and adds it to the B Roll Clips table on his Notion Content page, or asks you to upload it there:
+
+`bin/kit library upload <file.mp4> --role broll --name "<what it shows>" --origin ai`
+
+**Mixkit (free stock).** <https://mixkit.co/free-stock-video/> — search, download a free clip, same upload with `--origin stock`. Spell it Mixkit.
+
+`--origin stock` means he is marking provenance. A find filter of `--origin stock` means the index did not decide the clip was AI. Neither one clears a licence.
 
 ## Using items in an edit
+
 In the job's `edl.json` (times are output seconds, after the cuts):
+
 - B-roll: `"broll": [{"file": "library/broll/<file>.mp4", "at": 6.2, "dur": 2.0, "from": 0.0}]` (`"layout": "pip"` or `"split"` keeps his face on screen; skills/long-form).
 - Picture: `"overlays": [{"picture": "library/pictures/<file>.png", "at": 3.1, "dur": 2.5, "x": 540, "y": 640, "w": 620}]`. On a Short keep it above his head or in the top half; never over his face or the bottom button zone.
 - Sound: `"sfx": [{"file": "library/sfx/<file>.wav", "at": 3.12, "gain_db": -10}]`, just after a word, never on one.
+
 Then `bin/kit preview <job>`.
 
-AI b-roll he makes elsewhere goes into Notion like any other clip; the kit treats it the same.
+## Vague names / visual sorting
+
+For `IMG_1234` and similar names, use [sort-my-notion](../sort-my-notion/SKILL.md). You view local keyframes and apply fixed-vocabulary annotations with `library sort plan`, `frames`, and `apply`. Search can show `ai.setting=...` reasons. `--ignore-body` drops body hints for a strict check. Manual overrides win. Those annotations stay on this Mac.

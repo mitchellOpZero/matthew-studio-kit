@@ -21,10 +21,17 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit style import <old kit folder>            copy his saved styles from the old Matthew Edit Kit
   kit graphics list | test <graphic>           the kit's own graphics (logo pop, picture card, text card)
   kit blocks search <words> | test <name>      HyperFrames library blocks (about 200: chat and app mock-ups, charts, titles ...)
-  kit library list [<words>] [--type t]        his library: b-roll, pictures, sound effects (library/, catalogued in Notion)
+  kit library list [<words>] [--type t]        local files in library/ (b-roll, pictures, sound effects)
   kit library add <file> --type broll|picture|sfx --name <name> [--tags a,b]
-  kit library sync                             pull new items from his Notion library database (kit library connect first)
-  kit library connect <database url or id>     link the Notion database (the token is read from the Keychain, never printed)
+  kit library find <words> [--kind ...] [--origin ai|stock] [--aspect vertical|horizontal|square]
+                                               search the Notion index built from his Content page
+  kit library setup --input hub.json            plan the one-time Content page setup (tables + fields the kit needs)
+  kit library detect|plan|index|override|workflow
+                                               local Notion index commands (docs/NOTION-MCP.md)
+  kit library upload <file> --role broll|pictures|styles --name <title> [--origin ai|stock|own|unknown]
+                                               plan one create in the Content hub authorized this session
+  kit library sort plan|frames|apply|writeback local visual tags; writeback does not change Notion
+  kit library sync|connect                     disabled; the Codex Notion connection is used instead
   kit report [--note "<what he was doing>"] [--dry-run]
                                                file a problem report for Mitchell as a GitHub issue: the last error, recent
                                                commands, versions (never a video, transcript or secret). Every command is
@@ -69,7 +76,8 @@ there here now not no just very really still also even only too much many more m
 such same like well about into over up down out if as because though yeah okay um uh i'm you're it's that's we're they're
 we'll you'll i'll let's""".split())
 FILLERS = {"um", "uh", "er", "erm", "hmm", "uhm", "umm"}
-BRANDS = {"youtube": "youtube", "instagram": "instagram"}
+BRANDS = {"youtube": "youtube", "instagram": "instagram", "snapchat": "snapchat", "tiktok": "tiktok",
+          "hinge": "hinge", "tinder": "tinder", "bumble": "bumble"}   # a logo pops only when assets/logos has its file
 
 
 def style_dir(name: str) -> Path:
@@ -291,12 +299,21 @@ def load_words(p: Path) -> list[dict]:
 
 
 def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> list[dict]:
-    """Keep every word; drop pauses longer than `pause` and filler words. Retakes are Codex's call (see the skill)."""
+    """Keep every word; drop pauses longer than `pause` and filler words. Retakes are Codex's call (see the skill).
+
+    A filler always splits the cut, even when the words on either side are close. Padding
+    stays outside the word and outside the filler, so a cut never starts or ends inside a word.
+    """
+    fillers = [w for w in words if norm(w["w"]) in FILLERS]
     keep = [w for w in words if norm(w["w"]) not in FILLERS]
+
+    def filler_between(a: float, b: float) -> bool:
+        return any(float(f["start"]) < b - 1e-4 and float(f["end"]) > a + 1e-4 for f in fillers)
+
     cuts, cur = [], None
     for w in keep:
         s, e = float(w["start"]), float(w["end"])
-        if cur and s - cur["out"] <= pause:
+        if cur and not filler_between(cur["out"], s) and s - cur["out"] <= pause:
             cur["out"] = e
         else:
             if cur:
@@ -304,20 +321,85 @@ def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> lis
             cur = {"in": s, "out": e}
     if cur:
         cuts.append(cur)
-    dropped = [w for w in words if norm(w["w"]) in FILLERS]
     out = []
     for c in cuts:
         lo, hi = c["in"] - pad, c["out"] + pad
-        # padding never reaches into a removed filler
-        for f in dropped:
-            if f["end"] <= c["in"] and f["end"] > lo:
-                lo = float(f["end"])
-            if f["start"] >= c["out"] and f["start"] < hi:
-                hi = float(f["start"])
+        # padding never reaches into a removed filler, and never back into the word
+        for f in fillers:
+            fs, fe = float(f["start"]), float(f["end"])
+            if fe <= c["in"] and fe > lo:
+                lo = fe
+            if fs < hi and fe > c["out"]:
+                hi = min(hi, max(c["out"], fs))
         if out and lo < out[-1]["out"]:
             lo = out[-1]["out"]
+        lo = min(lo, c["in"])
+        hi = max(hi, c["out"])
         out.append({"in": round(max(0.0, lo), 3), "out": round(hi, 3)})
     return out
+
+
+def _source_to_output(cuts, t):
+    acc = 0.0
+    for c in cuts:
+        if t < c["in"]:
+            return acc
+        if t <= c["out"]:
+            return acc + (t - c["in"])
+        acc += c["out"] - c["in"]
+    return acc
+
+
+def cut_to_short(cuts, words, target=15.0):
+    """About 15 seconds of an edit, snapped to word edges. The long cuts are not changed.
+
+    A run that is already near the target is returned as it is. Otherwise the window of
+    kept words whose output length is closest to 15s becomes the short.
+    """
+    if not cuts:
+        return []
+    total = _source_to_output(cuts, cuts[-1]["out"])
+    if total <= target + 0.75:
+        return [dict(c) for c in cuts]
+
+    def inside(t):
+        return any(c["in"] <= t <= c["out"] for c in cuts)
+
+    kept = []
+    for w in words:
+        if norm(w.get("w") or "") in FILLERS:
+            continue
+        start, end = float(w.get("start", w.get("s", 0))), float(w.get("end", w.get("e", 0)))
+        if inside((start + end) / 2):
+            kept.append((start, end, w))
+    if not kept:
+        return [dict(c) for c in cuts]
+    best = None
+    for i in range(len(kept)):
+        for j in range(i, len(kept)):
+            dur = _source_to_output(cuts, kept[j][1]) - _source_to_output(cuts, kept[i][0])
+            if dur < 8:
+                continue
+            if dur > target + 5:
+                break
+            err = abs(dur - target) - min(len(norm(kept[i][2].get("w") or "")), 12) * 0.01
+            if best is None or err < best[0]:
+                best = (err, i, j)
+    if best is None:
+        i = j = 0
+        for j in range(len(kept)):
+            if _source_to_output(cuts, kept[j][1]) - _source_to_output(cuts, kept[0][0]) >= target:
+                break
+        span = (0, j)
+    else:
+        span = (best[1], best[2])
+    t0, t1 = kept[span[0]][0], kept[span[1]][1]
+    short = []
+    for c in cuts:
+        a, b = max(c["in"], t0), min(c["out"], t1)
+        if b - a >= 0.05:
+            short.append({"in": round(a, 3), "out": round(b, 3)})
+    return short or [dict(c) for c in cuts]
 
 
 # Common verbs and fillers that read as noise in crimson.
@@ -387,9 +469,14 @@ def cmd_draft(a) -> int:
         "output": {"w": 1920, "h": 1080, "fps": 30} if (a.long or st.get("shape") == "16:9") else {"w": 1080, "h": 1920, "fps": 30},
         "blocks": [],
     }
+    import library
+    # B-roll goes in on its own only when his style says so ("broll": {"auto": true}); otherwise he asks for it.
+    if (st.get("broll") or {}).get("auto"):
+        edl["broll"] = library.select_broll(words, edl["keywords"], edl["cuts"])
     if (st.get("logos") or {}).get("enabled"):
         add_logo_overlays(edl, words, st, job)
     json.dump(edl, open(job / "edl.json", "w"), indent=2)
+    short_note = _write_short_beside(name, edl, words, clip)
     # The transcript Codex reviews: restarts the listener heard first, then one line per word with its source time.
     hints = restart_hints(clip)
     with open(job / "TRANSCRIPT.txt", "w") as f:
@@ -404,7 +491,56 @@ def cmd_draft(a) -> int:
     print(f"plan: {job / 'edl.json'}  ({len(edl['cuts'])} kept pieces, {len(edl['keywords'])} keywords, style {style})")
     print(f"transcript: {job / 'TRANSCRIPT.txt'}" + (f"  ({len(hints)} restart(s) heard, listed at the top)" if hints else ""))
     print(f"Review the plan ({'skills/long-form' if a.long else 'skills/edit-short step 3'}), then: kit preview {name}")
+    if edl["broll"]:
+        print(f"b-roll: {len(edl['broll'])} clip(s) placed from the library on the keyword lines")
+    if short_note:
+        print(short_note)
     return 0
+
+
+def _write_short_beside(name, edl, words, clip: Path) -> str:
+    """When the edit runs long, write a ~15s vertical job next to it. The long plan is left as it is."""
+    if name.endswith("-15s"):
+        return ""
+    full = sum(c["out"] - c["in"] for c in edl["cuts"])
+    if full <= 16:
+        return ""
+    short_cuts = cut_to_short(edl["cuts"], words, 15.0)
+    short_dur = sum(c["out"] - c["in"] for c in short_cuts)
+    if short_dur > 17 or abs(short_dur - full) < 0.5:
+        return ""
+    short_name = (name[:36] + "-15s").strip("-")
+    job = WORK / short_name
+    if (job / "edl.json").exists():
+        return f"15s short already at {job} (left as it is)"
+    (job / "inputs").mkdir(parents=True, exist_ok=True)
+    src_link = job / "inputs" / clip.name
+    if not src_link.exists():
+        src_link.symlink_to(clip)
+    words_src = WORK / name / "inputs" / "words.json"
+    if words_src.is_file():
+        shutil.copy2(words_src, job / "inputs" / "words.json")
+    style = edl.get("style_name") or "matthew"
+    if style.endswith("-long") and (style_dir(style[: -len("-long")]) / "style.json").exists():
+        style = style[: -len("-long")]
+    import library
+    short = {
+        "name": short_name,
+        "style_name": style,
+        "source": f"inputs/{clip.name}",
+        "words": "inputs/words.json",
+        "cuts": short_cuts,
+        "keywords": edl.get("keywords") or [],
+        "caption_breaks": [],
+        "overlays": [],
+        "caption_hide": [],
+        "broll": library.select_broll(words, edl.get("keywords") or [], short_cuts) if edl.get("broll") else [],
+        "sfx": [],
+        "output": {"w": 1080, "h": 1920, "fps": 30},
+        "blocks": [],
+    }
+    json.dump(short, open(job / "edl.json", "w"), indent=2)
+    return f"15s short: {job}  ({short_dur:.1f} s beside the {full:.1f} s edit)"
 
 
 def restart_hints(clip: Path) -> list[dict]:
@@ -421,13 +557,15 @@ def restart_hints(clip: Path) -> list[dict]:
 
 
 def add_logo_overlays(edl: dict, words: list[dict], st: dict, job: Path) -> None:
-    """Logo tiles once, the first time he says YouTube / Instagram in the first 10 s (output time computed after cuts)."""
+    """Logo tiles once, the first time he names an app with a logo file (YouTube, Instagram, Snapchat, TikTok...) in the first 10 s."""
     hits = []
     for w in words:
         n = norm(w["w"])
         if n in BRANDS and float(w["start"]) <= 10 and n not in [h[0] for h in hits]:
             hits.append((n, float(w["start"])))
-    edl["_logo_hits"] = [{"brand": n, "source_t": t, "logo": (st.get("logos") or {}).get(n, f"assets/logos/{n}.png")} for n, t in hits]
+    logos = st.get("logos") or {}
+    edl["_logo_hits"] = [{"brand": n, "source_t": t, "logo": logos.get(n, f"assets/logos/{n}.png")} for n, t in hits
+                         if (KIT / logos.get(n, f"assets/logos/{n}.png")).is_file()]
 
 
 def output_time(edl: dict, t: float) -> float | None:
@@ -533,9 +671,45 @@ def cmd_preview(a) -> int:
     return 0
 
 
+def qa_extra_args(job: Path | None) -> list[str]:
+    """Flags the QA gate already accepts: output-timed words, the voice stem, and the style's loudness target.
+
+    Source-word times are not passed. They still sit on the raw clip's clock, so a cut would look like a missing word.
+    The voice stem is the one HyperFrames mixed (`.work/_studio/<job>/assets/voice.wav`), written at render time.
+    """
+    if job is None or not (job / "edl.json").is_file():
+        return []
+    edl = json.load(open(job / "edl.json"))
+    extra: list[str] = []
+    words_rel = edl.get("words")
+    if words_rel:
+        src = Path(words_rel) if Path(words_rel).is_absolute() else job / words_rel
+        if src.is_file():
+            import quick_edit as qe
+            raw = qe.load_words(str(src))
+            st = qe.resolve_style(edl)
+            fps = int((edl.get("output") or {}).get("fps", 30))
+            pieces = qe.build_pieces(edl, raw, st, fps)
+            mapped, _total = qe.map_words(raw, pieces)
+            out_words = job / "out" / "qa-words.json"
+            out_words.parent.mkdir(parents=True, exist_ok=True)
+            payload = {"words": [{"w": w["w"], "s": round(w["s"], 3), "e": round(w["e"], 3)} for w in mapped]}
+            if edl.get("sfx"):
+                payload["sfx"] = [[s.get("file", ""), s.get("at", 0)] for s in edl["sfx"]]
+            json.dump(payload, open(out_words, "w"))
+            extra += ["--words", str(out_words)]
+            target = (st.get("loudness") or {}).get("I")
+            if target is not None:
+                extra += ["--target-lufs", str(target)]
+    voice = KIT / ".work" / "_studio" / job.name / "assets" / "voice.wav"
+    if voice.is_file():
+        extra += ["--dialogue", str(voice)]
+    return extra
+
+
 def run_qa(mp4: Path, job: Path | None) -> str:
     out = (job / "out" / "qa") if job else mp4.with_suffix("").parent / f"{mp4.stem}_qa"
-    cmd = [py(), str(ENGINE / "qa.py"), str(mp4), "--out", str(out), "--model", "small.en"]
+    cmd = [py(), str(ENGINE / "qa.py"), str(mp4), "--out", str(out), "--model", "small.en", *qa_extra_args(job)]
     subprocess.call(cmd, env=env())
     try:
         return json.load(open(out / "qa.json")).get("verdict", "FAIL")
@@ -678,7 +852,36 @@ def style_test(name: str, clip: str | None = None) -> tuple[bool, str]:
     return (rc == 0), ("ok" if rc == 0 else "preview render failed")
 
 
+def _notion_layout() -> dict:
+    path = Path(os.environ.get("KIT_NOTION_LAYOUT", Path.home() / ".matthew-studio-kit" / "notion_layout.json"))
+    if not path.is_file():
+        die("layout config missing; configure the authorized Content hub first (docs/NOTION-MCP.md)")
+    return json.load(open(path))
+
+
 def cmd_style(a) -> int:
+    if a.action == "push":
+        if not a.name:
+            die("kit style push <name>")
+        import notion_index
+        try:
+            plan = notion_index.push_style(_notion_layout(), style_dir(a.name) / "style.json", title=a.name)
+        except ValueError as exc:
+            die(str(exc))
+        print(json.dumps(plan, indent=2, ensure_ascii=False))
+        print("planned only: nothing was written to Notion")
+        return 0
+    if a.action == "pull":
+        if not a.name or not a.as_name:
+            die("kit style pull <page.json> --as <style name>")
+        import notion_index
+        try:
+            page = json.load(open(Path(a.name).expanduser()))
+            result = notion_index.import_style(_notion_layout(), page, USER_STYLES / a.as_name)
+        except (ValueError, json.JSONDecodeError, OSError) as exc:
+            die(str(exc))
+        print(f"style written locally: {result['path']}")
+        return 0
     if a.action == "list":
         for n in list_styles():
             mine = " (saved by you)" if (USER_STYLES / n / "style.json").exists() else ""
@@ -1027,9 +1230,31 @@ def cmd_blocks(a) -> int:
     return 0
 
 
+def cmd_capcut(a) -> int:
+    """Send the finished (rendered) edit to CapCut as a project he can open and change."""
+    import capcut_export
+    job = resolve_job(a.job)
+    try:
+        folder = capcut_export.export_job(job, KIT)
+    except ValueError as exc:
+        die(str(exc))
+    print(f"CapCut project: {folder.name}")
+    print("Open CapCut (quit and reopen it if it was already open): it's in the Projects list. "
+          "The whole finished edit is one clip, captions and b-roll included, ready to trim or add to.")
+    return 0
+
+
 def cmd_library(a) -> int:
     sys.path.insert(0, str(ENGINE))
     import library
+    if a.action in {"setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"}:
+        import notion_index
+        try:
+            if a.action == "upload":
+                return notion_index.upload_cli(a)
+            return notion_index.run(a)
+        except (ValueError, json.JSONDecodeError) as exc:
+            die(str(exc))
     if a.action == "list":
         return library.list_items(" ".join(a.args), a.type)
     if a.action == "add":
@@ -1038,7 +1263,7 @@ def cmd_library(a) -> int:
         return library.add(Path(a.args[0]).expanduser(), a.type, a.name, a.tags or "")
     if a.action == "connect":
         if not a.args:
-            die("kit library connect <Notion database link or id>")
+            die("kit library connect is disabled. See docs/NOTION-MCP.md.")
         return library.connect(a.args[0])
     if a.action == "sync":
         return library.sync()
@@ -1056,13 +1281,24 @@ def main() -> int:
     pv = sp.add_parser("preview"); pv.add_argument("jobs", nargs="*"); pv.add_argument("--port", type=int, default=3101)
     pv.add_argument("--rebuild", action="store_true"); pv.add_argument("--open", action="store_true"); pv.add_argument("--stop", action="store_true")
     q = sp.add_parser("qa"); q.add_argument("video"); q.add_argument("--job")
-    s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet"])
+    cc = sp.add_parser("capcut"); cc.add_argument("job")
+    s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet", "push", "pull"])
     s.add_argument("name", nargs="?"); s.add_argument("pairs", nargs="*"); s.add_argument("--as", dest="as_name"); s.add_argument("--clip")
     s.add_argument("--from", dest="base")
     g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
     b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
-    lb = sp.add_parser("library"); lb.add_argument("action", choices=["list", "add", "sync", "connect"]); lb.add_argument("args", nargs="*")
+    lb = sp.add_parser("library")
+    lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"])
+    lb.add_argument("args", nargs="*")
     lb.add_argument("--type", choices=["broll", "picture", "sfx"]); lb.add_argument("--name"); lb.add_argument("--tags")
+    lb.add_argument("--role"); lb.add_argument("--origin", choices=["ai", "stock", "own", "unknown"])
+    lb.add_argument("--workspace-id", dest="workspace_id"); lb.add_argument("--hub-id", dest="hub_id")
+    lb.add_argument("--input"); lb.add_argument("--layout"); lb.add_argument("--index"); lb.add_argument("--kind")
+    lb.add_argument("--aspect", choices=["vertical", "horizontal", "square"]); lb.add_argument("--limit", type=int, default=10)
+    lb.add_argument("--frames-dir"); lb.add_argument("--qa-report"); lb.add_argument("--requested-status")
+    lb.add_argument("--phrase"); lb.add_argument("--page-id")
+    lb.add_argument("--force", action="store_true"); lb.add_argument("--ignore-body", action="store_true")
+    lb.add_argument("--human-posted", action="store_true"); lb.add_argument("--simulated", action="store_true")
     sp.add_parser("update"); sp.add_parser("prepare")
     u = sp.add_parser("deps"); u.add_argument("action", choices=["status", "check", "rollback"])
     rp = sp.add_parser("report"); rp.add_argument("--note", default=""); rp.add_argument("--dry-run", action="store_true")
@@ -1078,7 +1314,7 @@ def main() -> int:
             deps.apply()
         deps.auto()
     return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "qa": cmd_qa,
-            "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library}[a.cmd](a)
+            "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library, "capcut": cmd_capcut}[a.cmd](a)
 
 
 def logged_main() -> int:

@@ -13,7 +13,8 @@ Chrome and a local Studio server. Always call it as `bin/kit`, so the rule appli
 | edit everything in inbox, "$episode" | `skills/episode/SKILL.md` |
 | change the look, make or change a style, undo a style change | `skills/style/SKILL.md` |
 | add or use a graphic, a library block, a picture on screen | `skills/graphics/SKILL.md` |
-| b-roll, pictures, sound effects, "my library", Notion | `skills/library/SKILL.md` |
+| b-roll, pictures, sound effects, "my library", Notion, Runway, Mixkit | `skills/library/SKILL.md` |
+| "sort my Notion" | `skills/sort-my-notion/SKILL.md` |
 | check a finished video | `skills/video-qa/SKILL.md` |
 | update the kit | run `bin/kit update`. It pulls the newest kit, then brings HyperFrames and the Python packages up to date (tested first). His styles in `my-styles/` and his library in `library/` are untouched. Then tell him the new version. |
 | "is HyperFrames up to date?", a library problem | `bin/kit deps status`. A bad update: `bin/kit deps rollback`. |

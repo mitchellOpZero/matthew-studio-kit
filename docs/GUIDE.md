@@ -35,10 +35,13 @@ Save the reel as a video file (download it, or screen-record it; a link won't wo
 and say **"Make a style from this."** It copies the captions and zoom pacing into a new style. Then use it: "Edit this with the <name> style."
 
 ## Your library (Notion)
-Your b-roll, pictures (Hinge and text screenshots, photos) and sound effects live in your Notion library database.
-Add a row with a Name, a Type (B-roll, Picture or SFX) and the file. Then tell Codex **"sync my library"** and use
-them by name: "use the gym b-roll when I talk about the gym". Connecting Notion the first time takes one Terminal
-command; Codex walks you through it.
+Your b-roll, pictures, graphics, and styles live on the Content page you already have in Notion. Codex sets up what the kit needs there for you (it keeps B Roll Clips and your Graphics table, adds the fields they need, and adds Pictures and Styles), and shows you the plan before it changes anything. You do not create an integration.
+
+Once: open that Content page, share it with the Notion connection Codex is already signed into (••• → Connections), then paste the page URL and say **"Use the library skill to set up my Content page and build the local index."** After that, "use the gym b-roll when I talk about the gym" finds what was indexed. Say **"refresh my library"** after you add something.
+
+Codex can add a b-roll clip, a picture, or a style only on that Content page. It will not write to a different workspace, and it never deletes or renames anything.
+
+**B-roll.** Runway is the usual place for AI B-roll: generate the clip, download the MP4, and add it to your B Roll database (or ask Codex to upload it). For free stock, use Mixkit at <https://mixkit.co/free-stock-video/>: search, download a free clip, and add it the same way. The kit then indexes it like any other clip. Marking a clip AI or stock records where it came from. It does not clear the licence. Details: `docs/NOTION-MCP.md`.
 
 ## Graphics
 "What graphics do I have?" lists the kit's own (logo pop, picture card, text card). There are also about 200 ready-made

@@ -1,6 +1,6 @@
 {
   "name": "matthew-studio-kit",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Edit raw talking-head clips into finished Shorts and long-form videos in saved styles. Watch the whole edit live in HyperFrames Studio before anything renders; b-roll, pictures and graphics from your Notion library; QA-gated.",
   "skills": "./skills/",
   "interface": {
