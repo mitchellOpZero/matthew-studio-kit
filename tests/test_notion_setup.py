@@ -105,6 +105,29 @@ class SetupPlanTests(unittest.TestCase):
         self.assertIn('tiktok', brands)
         self.assertEqual('hinge' in brands, (KIT / 'assets/logos/hinge.png').is_file())
 
+    def test_refresh_lists_without_downloading_then_attach_one(self):
+        from unittest.mock import patch
+        layout = {'roles': {'broll': {'data_source_id': 'ds', 'title_property': 'Name', 'files_property': 'Files & media'}}}
+        row = {'id': 'page-gym', 'role': 'broll', 'title': 'Gym battle ropes', 'body': '', 'last_edited_time': 'v1',
+               'tags': ['gym', 'confidence'], 'files': [{'name': 'ropes.mp4', 'ref': 'file://ropes'}]}
+        inv = {'complete_roles': ['broll'], 'rows': [row]}
+        idx = ni.empty_index()
+        with tempfile.TemporaryDirectory() as d:
+            ni.refresh(idx, layout, inv, [row], Path(d))
+            hit = ni.find(idx, 'gym')[0]
+            self.assertFalse(hit['downloaded'])
+            self.assertIsNone(hit['path'])
+            self.assertIn('library attach page-gym', hit['next_step'])
+            clip = Path(d) / 'ropes.mp4'
+            clip.write_bytes(b'clip')
+            with patch.object(ni, 'media_info', return_value={'width': 720, 'height': 1280, 'duration': 6.5, 'aspect': 'vertical'}), \
+                 patch.object(ni, 'make_local_poster', return_value=str(clip)):
+                ni.attach(idx, 'page-gym', clip, Path(d))
+            hit = ni.find(idx, 'gym', aspect='vertical')[0]
+        self.assertTrue(hit['downloaded'])
+        self.assertEqual(hit['path'], str(clip.resolve()))
+        self.assertEqual(len(idx['entries']), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

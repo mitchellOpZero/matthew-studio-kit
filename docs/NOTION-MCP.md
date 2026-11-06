@@ -156,21 +156,28 @@ fetches and downloads; the commands only read the files Codex wrote.
    consistently. Write `{rows:[...],complete_roles:["broll","graphics"]}` as
    `inventory.json`. It contains every row in those roles, including rows with no file.
 3. `library plan` prints the ids that need a full read. Fetch only those page ids.
-   Read the body, provenance, and actual `page_last_edited_at`. Resolve files with
-   `notion-get-file-download-urls` for the `notion-file-block://` references the fetch
-   returned. If media exists only on a files property and the MCP result has no such
-   reference, `notion-fetch` with `include_file_urls:true` supplies download URLs.
-   Do not invent block references or add a block just for indexing. Match downloaded
-   names and identities to the files property.
-4. Download through the short-lived URLs into a local asset cache. Keep every file;
-   do not silently keep only the first attachment. Verify the downloads.
-   Export changed pages as `{id,role,title,files:[{name,ref,path}]}`, plus the actual
+   Read the body, provenance, and actual `page_last_edited_at`. Keep each file's
+   `ref` (its stable identity from the files property). **Do not download anything
+   during a refresh.** His library can be hundreds of gigabytes; files stay in Notion
+   until an edit uses one.
+4. Export changed pages as `{id,role,title,files:[{name,ref}]}` (no `path`), plus the actual
    `body`, `last_edited_time`, and optional `tags`, `origin`, `kind`.
    Write `refresh.json` as `{inventory:<full inventory>,pages:[changed pages]}`.
-5. `library index` hashes the local bytes, probes the media, writes local PNG posters,
-   and stores entries keyed by page id plus SHA256. It never uploads posters or adds
-   columns. Rows missing from an explicitly complete role, and replaced hashes, become
-   stale. They are not deleted. Unchanged bytes reuse the local metadata and poster.
+5. `library index` lists those files by page id and ref (name, tags, provenance) without
+   downloading them. Rows missing from an explicitly complete role become stale. They are
+   not deleted.
+
+## Using a Notion file in an edit (download only what the edit uses)
+
+1. `bin/kit library find "<words>"`. A hit that is not on this Mac yet shows
+   `downloaded: false` and a `next_step`.
+2. Download only that file: `notion-get-file-download-urls` for its `notion-file-block://`
+   reference (or `notion-fetch` with `include_file_urls:true` when the media is only on a
+   files property). Save it under `~/.matthew-studio-kit/assets/`. The URLs expire after
+   about an hour, so download right before you use it.
+3. `bin/kit library attach <page_id> <downloaded file>` hashes it, reads its length and
+   shape, and makes a poster. Then place that path in `edl.json`.
+4. A file already attached is reused next time; it is not downloaded again.
 
 **Incremental limit:** a minimal-schema view may omit edit time. The cheap scan then
 sees renamed titles and new or changed file references, plus local hash changes. It

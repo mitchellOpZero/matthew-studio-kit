@@ -40,7 +40,7 @@ Writes are allowed only for the hub this session recorded (`workspace_id` and `h
 `bin/kit library list [<words>] [--type broll|picture|sfx]` searches the local `library/` copies.
 `bin/kit library find "<words>" [--kind broll|graphic|picture|style] [--origin ai|stock] [--aspect vertical|horizontal|square]` searches the Notion index. Read the score, the reasons, and the provenance before you place a file.
 
-Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it.
+Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it. A refresh only lists his files; it never downloads them (his library can be huge). Download a file only when this edit uses it, then `bin/kit library attach <page_id> <file>` (docs/NOTION-MCP.md, "Using a Notion file in an edit").
 
 B-roll is his call. Draft leaves `broll` empty unless his style turns on automatic picks (`bin/kit style set <style> broll.auto=true`; then a clip whose name or tags share a keyword with the transcript is placed). When he asks for B-roll ("put gym b-roll when I talk about the gym", "add b-roll here"), find it with `bin/kit library find` and place it in `edl.json`.
 
