@@ -43,6 +43,10 @@ Codex can add a b-roll clip, a picture, or a style only on that Content page. It
 
 **B-roll.** Runway is the usual place for AI B-roll: generate the clip, download the MP4, and add it to your B Roll database (or ask Codex to upload it). For free stock, use Mixkit at <https://mixkit.co/free-stock-video/>: search, download a free clip, and add it the same way. The kit then indexes it like any other clip. Marking a clip AI or stock records where it came from. It does not clear the licence. Details: `docs/NOTION-MCP.md`.
 
+## Finish in CapCut
+
+Say **"send it to CapCut"**. Codex renders the edit if it isn't yet, then makes a CapCut project with the whole finished video in it (captions, b-roll and graphics included). Quit and reopen CapCut: the project is in your Projects list, ready to trim, add music or text, or cut up. The kit's captions are part of the video there, so to change a caption, ask Codex to change the edit and send it again.
+
 ## Graphics
 "What graphics do I have?" lists the kit's own (logo pop, picture card, text card). There are also about 200 ready-made
 animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one ("show this as a text conversation",
