@@ -35,11 +35,11 @@ Save the reel as a video file (download it, or screen-record it; a link won't wo
 and say **"Make a style from this."** It copies the captions and zoom pacing into a new style. Then use it: "Edit this with the <name> style."
 
 ## Your library (Notion)
-Your b-roll, pictures, graphics, and styles stay on the Content page you already have in Notion. You do not make a new database, and you do not create an integration.
+Your b-roll, pictures, graphics, and styles live on the Content page you already have in Notion. Codex sets up what the kit needs there for you (it keeps B Roll Clips and your Graphics table, adds the fields they need, and adds Pictures and Styles), and shows you the plan before it changes anything. You do not create an integration.
 
-Once: open that Content page, share it with the Notion connection Codex is already signed into (••• → Connections), then paste the page URL and say **"Use the library skill to configure my existing Content hub and build the local index. Do not add columns."** After that, "use the gym b-roll when I talk about the gym" finds what was indexed. Say **"refresh my library"** after you add something.
+Once: open that Content page, share it with the Notion connection Codex is already signed into (••• → Connections), then paste the page URL and say **"Use the library skill to set up my Content page and build the local index."** After that, "use the gym b-roll when I talk about the gym" finds what was indexed. Say **"refresh my library"** after you add something.
 
-Codex can add a b-roll clip, a picture, or a style only on that Content page. It will not write to a different workspace, and it will not add columns.
+Codex can add a b-roll clip, a picture, or a style only on that Content page. It will not write to a different workspace, and it never deletes or renames anything.
 
 **B-roll.** Runway is the usual place for AI B-roll: generate the clip, download the MP4, and add it to your B Roll database (or ask Codex to upload it). For free stock, use Mixkit at <https://mixkit.co/free-stock-video/>: search, download a free clip, and add it the same way. The kit then indexes it like any other clip. Marking a clip AI or stock records where it came from. It does not clear the licence. Details: `docs/NOTION-MCP.md`.
 

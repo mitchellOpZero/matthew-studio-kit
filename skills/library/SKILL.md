@@ -7,19 +7,21 @@ description: "His library of b-roll, pictures and sound effects, indexed from th
 
 Files for an edit live in `library/broll/`, `library/pictures/` and `library/sfx/`. `library/index.json` names the local copies. His Notion Content page is the catalogue he browses. Codex reads and, when he asks, uploads into that page through the Notion connection already signed in. No new integration, no token, no Keychain entry.
 
-Read [docs/NOTION-MCP.md](../../docs/NOTION-MCP.md) and follow it. The page is the live Content hub he already has, not a new database and not a copy.
+Read [docs/NOTION-MCP.md](../../docs/NOTION-MCP.md) and follow it. The page is the live Content hub he already has, not a copy. The one-time setup fills in what the kit needs there.
 
 ## Connect his Content page (once)
 
 Tell him, in this order:
 
 1. In Notion, open the Content page he already uses (B Roll Clips, Pictures, Graphics, Styles, Videos, Posts, and the rest). Share that page with the Notion connection Codex is already signed into (••• → Connections). Do not create an integration.
-2. Paste that page's URL into Codex and say: "Use the library skill to configure my existing Content hub and build the local index. Do not add columns."
+2. Paste that page's URL into Codex and say: "Use the library skill to set up my Content page and build the local index."
 
 Then you:
 
+- Run the one-time setup in docs/NOTION-MCP.md first: list the tables on that page, run `bin/kit library setup --input hub.json`, tell him in plain words what you'll create or add, and apply it only after his OK. It reuses B Roll Clips and his Graphics table and creates Pictures and Styles if they're missing. Never delete or rename anything.
+
 - Fetch only under that URL. Resolve each database's real id from that page. Do not search the whole workspace by name and take the first match.
-- Map `broll`, `graphics`, optional `pictures`, `posts`, optional `videos`, and `styles` if that database exists and already has a title and a files property. If Styles has no files property, leave it unmapped. Never add a column.
+- Map `broll`, `graphics`, optional `pictures`, `posts`, optional `videos`, and `styles` if that database exists and already has a title and a files property. After setup every one of these has a files field. Outside setup, never add a field.
 - Save `workspace_id` and `hub_id` from that page, run `bin/kit library detect`, then the inventory, plan, and index steps in docs/NOTION-MCP.md.
 - `library sync` and `library connect` are disabled. If he says "sync my library", refresh with the MCP steps instead.
 
@@ -29,7 +31,7 @@ Writes are allowed only for the hub this session recorded (`workspace_id` and `h
 
 - You may create a b-roll clip, a picture, or a style in that hub when he asks you to add one.
 - Run `bin/kit library upload <file> --role broll|pictures|styles --name "<title>" [--origin ai|stock|own|unknown]`. Apply the JSON only if the command succeeds. Fetch the destination database and confirm the workspace and parent hub still match the plan. If they do not, or you cannot tell, stop and do not write.
-- Set only the title property the plan names. Attach the file to the files property it names. Put the body text on the page. Do not add, rename, or delete properties, do not create select options, and do not upload a poster.
+- Set only the title property the plan names. Attach the file to the files property it names. Put the body text on the page. Outside the one-time setup, do not add, rename, or delete properties, do not create select options, and do not upload a poster.
 - Do not write to any other workspace, hub, or database. Do not create graphics, posts, or video-queue rows with upload.
 - Visual-sort tags and QA status stay on this Mac. `library sort writeback` and `library workflow` do not change Notion. Ignore any older phrase that asked to save tags or status back to Notion.
 

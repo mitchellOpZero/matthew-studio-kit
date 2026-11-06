@@ -5,18 +5,36 @@ Notion integration, and do not paste a token. `library sync` and `library connec
 disabled compatibility commands: they exit with an error and never read the Keychain,
 an environment variable, or the Notion HTTP API.
 
-The page to connect is Matthew's existing Content page, the live hub he already uses.
-Do not make a new database, do not simplify the schema, and do not point this at a
-test copy. Databases under that page include B Roll Clips, Pictures, Graphics, Styles,
-Videos, Posts, and the others he already has. Map what is there. Skip a role that is
-missing. Never add a column to make a role fit.
+The page to connect is Matthew's existing Content page in Cold Approach HQ, the live hub
+he already uses. Do not point this at a test copy. It already has tables such as Posts,
+Scripts, B Roll Clips and a Graphics database. The kit needs four: B-roll, Pictures,
+Graphics and Styles. **Run the one-time setup first** (below): it reuses the tables that are
+there, adds only the fields the kit needs, and creates the ones that are missing, after
+he says OK. Nothing is ever deleted or renamed, and no field changes type.
+
+## One-time Content page setup (run this first)
+
+1. `notion-fetch` the Content page URL. List every database directly on that page with
+   its title, database id, data source id, and schema (`{field name: {type}}`).
+   Use only that page; never search the workspace by name.
+2. Write `hub.json`: `{"workspace_id": ..., "hub_id": <Content page id>, "databases": [...]}`.
+3. `bin/kit library setup --input hub.json` prints the plan. Show him the `summary`
+   lines in plain words ("I'll add Pictures and Styles tables, and add Tags and a file
+   field to B Roll Clips") and wait for his OK.
+4. Apply exactly the plan with the Notion connection: `create_database` steps become new
+   tables under the Content page with exactly the listed fields (Origin options AI,
+   Stock, Own); `add_properties` steps add only the listed fields to that table. Never
+   delete or rename a table or field. Never write outside the Content page.
+5. Fetch the tables again and continue with the setup below (detect, plan, index).
+   Then `bin/kit style push <style>` works, because Styles now has a file field.
 
 ## What Matthew does
 
 1. In Notion, open the Content page. Share it with the Notion connection Codex already
    uses (the page's ••• menu → Connections). That is the authorization for this session.
-2. In Codex, in this kit folder, say: "Use the library skill to configure my existing
-   Content hub and build the local index. Do not add columns." Paste the Content page URL.
+2. In Codex, in this kit folder, say: "Use the library skill to set up my Content page
+   and build the local index." Paste the Content page URL. Codex shows the setup plan
+   and waits for his OK before changing anything.
 3. To pick up new clips later, say "refresh my library". To add a file, see
    [Getting B-roll](#getting-b-roll) below, or hand Codex the file and ask it to upload
    the file into that same Content page.
@@ -31,7 +49,7 @@ Content page. The layout file stores its `workspace_id` and `hub_id`. `asset_upl
 is `authorized_hub` only when both were saved. `notion_writeback` on the layout stays
 false: that flag is not a licence to push tags, status, or QA.
 
-Allowed remote change:
+Allowed remote changes: the one-time setup plan above (after his OK), and:
 
 - `bin/kit library upload <file> --role broll|pictures|styles --name "<title>" [--origin ai|stock|own|unknown]`
   prints one create plan. Codex may apply it only when the command exits 0 and every
@@ -45,7 +63,7 @@ Before applying that plan:
 2. Create one page in that database only. Set only the properties named in `properties`
    (the title that already exists). Attach the local file to `files_property`. Put `body`
    on the page as content.
-3. Do not add, rename, or delete properties. Do not create select options. Do not upload
+3. Outside the one-time setup, do not add, rename, or delete properties. Do not create select options. Do not upload
    the local poster, and do not add a cover or poster column. Do not write status, QA,
    tags, or comments. Do not create a page in any other database, hub, or workspace.
 
@@ -67,8 +85,8 @@ present and already has a title and a files property. Title and files properties
 detected by type and preferred names (`Files & media`, `File`). An ambiguous schema
 fails instead of guessing. Tags, Origin, and Duration are optional and are never created.
 
-Include `styles` in the map only when that database already has a files property.
-If it does not, leave the role out.
+After the one-time setup every kit table has a files field. If a table still has
+none, run setup again rather than leaving the role out.
 
 Codex saves `schemas.json` with this envelope. Each `fetch` is the raw MCP notion-fetch
 result, not invented schema data:

@@ -25,6 +25,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit library add <file> --type broll|picture|sfx --name <name> [--tags a,b]
   kit library find <words> [--kind ...] [--origin ai|stock] [--aspect vertical|horizontal|square]
                                                search the Notion index built from his Content page
+  kit library setup --input hub.json            plan the one-time Content page setup (tables + fields the kit needs)
   kit library detect|plan|index|override|workflow
                                                local Notion index commands (docs/NOTION-MCP.md)
   kit library upload <file> --role broll|pictures|styles --name <title> [--origin ai|stock|own|unknown]
@@ -1240,7 +1241,7 @@ def cmd_capcut(a) -> int:
 def cmd_library(a) -> int:
     sys.path.insert(0, str(ENGINE))
     import library
-    if a.action in {"detect", "plan", "index", "find", "override", "workflow", "sort", "upload"}:
+    if a.action in {"setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"}:
         import notion_index
         try:
             if a.action == "upload":
@@ -1281,7 +1282,7 @@ def main() -> int:
     g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
     b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
     lb = sp.add_parser("library")
-    lb.add_argument("action", choices=["list", "add", "sync", "connect", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"])
+    lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"])
     lb.add_argument("args", nargs="*")
     lb.add_argument("--type", choices=["broll", "picture", "sfx"]); lb.add_argument("--name"); lb.add_argument("--tags")
     lb.add_argument("--role"); lb.add_argument("--origin", choices=["ai", "stock", "own", "unknown"])

@@ -1,7 +1,8 @@
 """Offline Notion MCP import, asset search, local QA records, and scoped upload plans.
 
 No network and no credentials. Codex talks to Notion through the connection already
-signed in. This module never calls Notion and never adds schema columns.
+signed in. This module never calls Notion. Only the one-time setup plan names tables or
+fields to add (on his Content page, after his OK); nothing here deletes or renames them.
 Sort tags and QA status stay on this Mac. An upload plan is valid only for the
 workspace id and hub id saved from the Content page authorized in this session.
 """
@@ -528,6 +529,84 @@ def upload_plan(layout, *, role, title, local_file, workspace_id=None, hub_id=No
                            'do not create select options, do not upload a poster, and do not write anywhere else.'}
 
 
+# ---------------------------------------------------------------- one-time hub setup
+# What the kit needs on his Content page, one table per role. Setup reuses a table that is
+# already there (matched by name), adds only the missing fields, and creates a missing table.
+# It never deletes or renames a table or a field, and never changes a field's type.
+SETUP_ROLES = {
+    'broll': {'title': 'B-roll Clips', 'names': {'broll', 'brollclips', 'brollclip', 'brolllibrary'},
+              'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select',
+                             'Origin': 'select', 'Duration (s)': 'number'}},
+    'pictures': {'title': 'Pictures', 'names': {'pictures', 'picture', 'photos', 'images', 'screenshots'},
+                 'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select'}},
+    'graphics': {'title': 'Motion Graphics', 'names': {'graphics', 'motiongraphics', 'motiongraphic', 'graphic'},
+                 'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select'}},
+    'styles': {'title': 'Styles', 'names': {'styles', 'style', 'editingstyles', 'captionstyles'},
+               'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select'}},
+}
+SETUP_OPTIONS = {'Origin': ['AI', 'Stock', 'Own']}
+
+
+def _setup_key(title):
+    words = re.findall(r'[a-z0-9]+', plain_title(title).lower())
+    return ''.join(w for w in words if w not in {'database', 'db', 'table', 'library'} or len(words) == 1)
+
+
+def setup_plan(payload):
+    """Plan the one-time Content page setup. Does not call Notion.
+
+    payload: {workspace_id, hub_id, databases: [{title, database_id, data_source_id, schema: {name: {type}}}]}
+    listing the tables already under that page (empty when the page is empty).
+    """
+    ws, hub = payload.get('workspace_id'), payload.get('hub_id')
+    if not ws or not hub:
+        raise ValueError('setup needs workspace_id and hub_id of the Content page')
+    existing = payload.get('databases') or []
+    steps, used = [], set()
+    for role, spec in SETUP_ROLES.items():
+        found = [d for d in existing if _setup_key(d.get('title', '')) in spec['names'] and id(d) not in used]
+        if len(found) > 1:
+            raise ValueError(f'more than one table looks like {role}: ' + ', '.join(d.get('title', '?') for d in found))
+        if not found:
+            props = {name: ({'type': t, 'options': SETUP_OPTIONS[name]} if name in SETUP_OPTIONS else {'type': t})
+                     for name, t in spec['properties'].items()}
+            steps.append({'action': 'create_database', 'role': role, 'parent_page_id': hub, 'title': spec['title'],
+                          'properties': props})
+            continue
+        db = found[0]
+        used.add(id(db))
+        schema = db.get('schema') or {}
+        types = {v.get('type') for v in schema.values()}
+        add, conflicts = {}, []
+        for name, t in spec['properties'].items():
+            if t == 'title':
+                continue                                  # every Notion table already has one title field
+            if t == 'files' and 'files' in types:
+                continue                                  # one files field is enough, whatever it is called
+            same = next((k for k in schema if k.casefold() == name.casefold()), None)
+            if same is not None:
+                if schema[same].get('type') != t:
+                    conflicts.append(f'{same} is {schema[same].get("type")}, kit wanted {t}; left as is')
+                continue
+            add[name] = {'type': t, 'options': SETUP_OPTIONS[name]} if name in SETUP_OPTIONS else {'type': t}
+        step = {'action': 'add_properties' if add else 'reuse', 'role': role, 'title': db.get('title'),
+                'database_id': db.get('database_id'), 'data_source_id': db.get('data_source_id')}
+        if add:
+            step['properties'] = add
+        if conflicts:
+            step['notes'] = conflicts
+        steps.append(step)
+    return {'command': 'setup_content_hub', 'write_performed': False, 'workspace_id': ws, 'hub_id': hub,
+            'steps': steps,
+            'summary': [f"{s['action'].replace('_', ' ')}: {s['title']}" + (f" (+ {', '.join(s['properties'])})" if s['action'] == 'add_properties' else '')
+                        for s in steps],
+            'instruction': 'Show him the summary and wait for his OK. Then, with the Notion connection, only inside '
+                           'hub_id: create each create_database table under parent_page_id with exactly these fields, '
+                           'and add only the listed fields to each add_properties table. Never delete or rename a '
+                           'table or field, never change a field type, never write outside this page. Then fetch the '
+                           'tables again and run library detect, plan and index (docs/NOTION-MCP.md).'}
+
+
 def upload_cli(args):
     default = Path.home() / '.matthew-studio-kit'
     layout_path = args.layout or os.environ.get('KIT_NOTION_LAYOUT', str(default / 'notion_layout.json'))
@@ -557,7 +636,9 @@ def run(args):
         raise ValueError('input JSON file does not exist')
     if args.action in {'index', 'workflow'} and not Path(layout_path).expanduser().is_file():
         raise ValueError('layout config missing; run library detect with MCP schema exports first')
-    if args.action == 'detect':
+    if args.action == 'setup':
+        result = setup_plan(payload)
+    elif args.action == 'detect':
         result = detect(payload)
         save_json(layout_path, result)
     elif args.action == 'plan':
