@@ -16,6 +16,7 @@ Chrome and a local Studio server. Always call it as `bin/kit`, so the rule appli
 | b-roll, pictures, sound effects, "my library", Notion, Runway, Mixkit | `skills/library/SKILL.md` |
 | "sort my Notion" | `skills/sort-my-notion/SKILL.md` |
 | check a finished video | `skills/video-qa/SKILL.md` |
+| "send it to CapCut", open or finish an edit in CapCut | render it if it isn't yet, then `bin/kit capcut <job>` (`skills/edit-short/SKILL.md`, Open in CapCut). Tell him to quit and reopen CapCut; the project is in its Projects list. |
 | update the kit | run `bin/kit update`. It pulls the newest kit, then brings HyperFrames and the Python packages up to date (tested first). His styles in `my-styles/` and his library in `library/` are untouched. Then tell him the new version. |
 | "is HyperFrames up to date?", a library problem | `bin/kit deps status`. A bad update: `bin/kit deps rollback`. |
 | "send Mitchell a report", "tell Mitchell this is broken" | `bin/kit report --note "<what he was doing, in his words>"` (below) |
