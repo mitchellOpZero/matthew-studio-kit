@@ -77,6 +77,18 @@ class CaptionTests(unittest.TestCase):
         self.assertTrue(any(line[:2] == ["50", "%"] or line[-2:] == ["50", "%"] for line in lines))
         self.assertFalse(any(line and line[0] == "%" for line in lines))
 
+    def test_100_percent_is_not_glued_to_the_next_word(self):
+        st = qe.load_style("matthew")
+        ow, t = [], 0.0
+        for text, dur in (("save", 0.3), ("100", 0.2), ("%", 0.1), ("off", 0.3)):
+            ow.append({"w": text, "ss": t, "s": t, "e": t + dur, "piece_end": 10})
+            t += dur + 0.02
+        chunks, _ = qe.caption_chunks(ow, t + 1, {"caption_breaks": []}, st)
+        lines = [[w["w"] for w in c] for c, _, _ in chunks]
+        self.assertTrue(any(line[:2] == ["100", "%"] or line[-2:] == ["100", "%"] for line in lines))
+        self.assertFalse(any(line[0] == "%" for line in lines))
+        self.assertFalse(any("%" in line and "off" in line and "100" not in line for line in lines))
+
     def test_percent_token_is_not_rewritten(self):
         st = qe.load_style("matthew")
         ow = [{"w": "50%", "ss": 0.0, "s": 0.0, "e": 0.4, "piece_end": 2},
