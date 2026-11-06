@@ -31,19 +31,28 @@ class GapTests(unittest.TestCase):
         span = cuts[-1]["out"] - cuts[0]["in"]
         self.assertGreater(span, 15)
 
-    def test_no_capcut_exporter(self):
-        """The CapCut draft is a video timeline. It must not carry a caption track."""
+    def test_capcut_project_from_capcut_template(self):
+        """The CapCut project is CapCut's own blank project with the finished video as one clip, copied inside."""
         import capcut_export
         with tempfile.TemporaryDirectory() as d:
-            src = Path(d) / "clip.mp4"
+            d = Path(d)
+            src = d / "edit.mp4"
             src.write_bytes(b"x")
-            folder = capcut_export.export_project(
-                {"name": "demo", "cuts": [{"in": 0.0, "out": 2.0}], "output": {"w": 1080, "h": 1920, "fps": 30}},
-                src, Path(d) / "out")
-            draft = json.loads((folder / "draft_content.json").read_text())
-        self.assertEqual(draft["materials"]["texts"], [])
-        self.assertTrue(draft["tracks"])
-        self.assertTrue(all(track["type"] == "video" for track in draft["tracks"]))
+            (d / "drafts").mkdir()
+            folder = capcut_export.export_video(src, "demo", d / "drafts", probe={"dur": 16.3, "w": 1080, "h": 1920, "audio": True})
+            info = json.loads((folder / "draft_info.json").read_text())
+            meta = json.loads((folder / "draft_meta_info.json").read_text())
+            timelines = list(folder.glob("Timelines/*/draft_info.json"))
+            self.assertTrue((folder / "media" / "edit.mp4").is_file())
+            self.assertTrue(timelines)
+            again = capcut_export.export_video(src, "demo", d / "drafts", probe={"dur": 1, "w": 1, "h": 1, "audio": False})
+        self.assertEqual(meta["draft_fold_path"], str(folder))
+        self.assertEqual(meta["draft_root_path"], str(d / "drafts"))
+        self.assertEqual(len(info["tracks"]), 1)
+        seg = info["tracks"][0]["segments"][0]
+        self.assertEqual(seg["target_timerange"]["duration"], 16_300_000)
+        self.assertEqual(info["materials"]["videos"][0]["path"], str(folder / "media" / "edit.mp4"))
+        self.assertEqual(again.name, "demo (2)")
 
     def test_style_upload_does_not_round_trip_style_json(self):
         """Uploading a style file plans one create. It does not read style.json or write Notion."""

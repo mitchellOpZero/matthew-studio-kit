@@ -1231,15 +1231,16 @@ def cmd_blocks(a) -> int:
 
 
 def cmd_capcut(a) -> int:
-    """Write a CapCut draft of this job's cuts so he can trim. No captions."""
+    """Send the finished (rendered) edit to CapCut as a project he can open and change."""
     import capcut_export
     job = resolve_job(a.job)
     try:
-        folder = capcut_export.export_job(job)
+        folder = capcut_export.export_job(job, KIT)
     except ValueError as exc:
         die(str(exc))
-    print(f"CapCut draft: {folder}")
-    print("Video cuts only, no captions. Open CapCut: it's in the project list (restart CapCut if it was open).")
+    print(f"CapCut project: {folder.name}")
+    print("Open CapCut (quit and reopen it if it was already open): it's in the Projects list. "
+          "The whole finished edit is one clip, captions and b-roll included, ready to trim or add to.")
     return 0
 
 

@@ -54,8 +54,8 @@ Edit `.work/<job>/edl.json` only.
   - Caption problems: fix keywords or caption_breaks.
   Preview and render again. Two fix rounds at most, then stop and report what is still failing.
 
-## Trim in CapCut
-`bin/kit capcut <job>` writes `.work/<job>/capcut/` (draft_content.json). It is the cut video only, so he can open it in CapCut and trim. It does not write captions.
+## Open in CapCut
+When he wants to finish or tweak an edit in CapCut ("send it to CapCut", "open in CapCut"): render it first, then `bin/kit capcut <job>`. That makes a CapCut project with the whole finished video (captions, b-roll, graphics included) in CapCut's Projects list. Tell him to quit and reopen CapCut if it was open. In CapCut he can trim, add music or text, or cut it up. The kit's captions are part of the video there: to change them, change the edit here and send it again.
 
 ## 6. Report
 Give him the `done/` path, the length, the QA verdict, what you cut (retakes, pauses), and the keywords. Offer to change the look (skills/style) or edit another clip. `bin/kit preview --stop` closes Studio when he's finished.
