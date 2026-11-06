@@ -469,7 +469,9 @@ def cmd_draft(a) -> int:
         "blocks": [],
     }
     import library
-    edl["broll"] = library.select_broll(words, edl["keywords"], edl["cuts"])
+    # B-roll goes in on its own only when his style says so ("broll": {"auto": true}); otherwise he asks for it.
+    if (st.get("broll") or {}).get("auto"):
+        edl["broll"] = library.select_broll(words, edl["keywords"], edl["cuts"])
     if (st.get("logos") or {}).get("enabled"):
         add_logo_overlays(edl, words, st, job)
     json.dump(edl, open(job / "edl.json", "w"), indent=2)
@@ -531,7 +533,7 @@ def _write_short_beside(name, edl, words, clip: Path) -> str:
         "caption_breaks": [],
         "overlays": [],
         "caption_hide": [],
-        "broll": library.select_broll(words, edl.get("keywords") or [], short_cuts),
+        "broll": library.select_broll(words, edl.get("keywords") or [], short_cuts) if edl.get("broll") else [],
         "sfx": [],
         "output": {"w": 1080, "h": 1920, "fps": 30},
         "blocks": [],

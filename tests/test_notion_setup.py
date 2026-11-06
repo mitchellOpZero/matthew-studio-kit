@@ -87,6 +87,13 @@ class SetupPlanTests(unittest.TestCase):
         self.assertEqual(data['highlight_color'], '#dc143c')
         self.assertNotIn('_about', data)
 
+    def test_broll_only_when_style_turns_it_on(self):
+        src = (KIT / 'engine' / 'kit.py').read_text()
+        call = 'edl["broll"] = library.select_broll('
+        self.assertIn(call, src)
+        guard = src[src.index(call) - 200: src.index(call)]
+        self.assertIn('(st.get("broll") or {}).get("auto")', guard)
+
 
 if __name__ == '__main__':
     unittest.main()

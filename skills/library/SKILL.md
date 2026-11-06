@@ -42,7 +42,7 @@ Writes are allowed only for the hub this session recorded (`workspace_id` and `h
 
 Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it.
 
-Draft places b-roll on its own when a library clip's name or tags share a keyword with the transcript. `edl.json` `broll` stays empty when nothing matches. You can still move or replace those picks.
+B-roll is his call. Draft leaves `broll` empty unless his style turns on automatic picks (`bin/kit style set <style> broll.auto=true`; then a clip whose name or tags share a keyword with the transcript is placed). When he asks for B-roll ("put gym b-roll when I talk about the gym", "add b-roll here"), find it with `bin/kit library find` and place it in `edl.json`.
 
 ## Add a file he hands you
 
@@ -56,7 +56,7 @@ Notion copy, when he wants it in the catalogue: upload into the authorized Conte
 
 Tell him this when he asks where to get B-roll. AI or stock on a row is provenance, not a licence clearance. The kit then indexes the file like any other clip.
 
-**Runway (primary AI B-roll).** Generate the clip in Runway, download the MP4, then either he adds it to his Notion B Roll database, or he asks you to upload it into the authorized Content hub:
+**Runway (AI B-roll).** The kit doesn't generate clips. He makes them in Runway (its app, or a Runway plugin if he has one connected), downloads the MP4, and adds it to the B Roll Clips table on his Notion Content page, or asks you to upload it there:
 
 `bin/kit library upload <file.mp4> --role broll --name "<what it shows>" --origin ai`
 
