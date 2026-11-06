@@ -555,6 +555,31 @@ def check_motion(video, info, rep):
 
 # ----------------------------------------------------------------------------- sound
 
+def loudness_mark(measured, target):
+    """FAIL when integrated loudness is outside ±1 LU of the target. Exactly 1 LU off still passes."""
+    off = abs(float(measured) - float(target))
+    return (FAIL if off > 1 else INFO), off
+
+
+def peak_mark(peak):
+    """FAIL when true peak is hotter than -1 dBTP. -1 and quieter passes."""
+    if peak is None:
+        return None
+    return FAIL if float(peak) > -1.0 else INFO
+
+
+def dead_air_limit(vertical, override=None):
+    """Seconds of silence before QA warns.
+
+    Cut pauses rejoin at about 0.16s, and pauses of 0.35s or less are kept on purpose
+    (skills/edit-short). Warning at 0.2s would flag those kept pauses, so the gate stays
+    at 1.0s for a vertical frame and 1.5s for a horizontal one unless --max-gap says otherwise.
+    """
+    if override is not None:
+        return float(override)
+    return 1.0 if vertical else 1.5
+
+
 def check_loudness(video, info, rep, target):
     r = run(['ffmpeg', '-nostats', '-i', str(video), '-vn', '-af', 'ebur128=peak=true:framelog=verbose', '-f', 'null', '-'])
     err = r.stderr
@@ -566,11 +591,10 @@ def check_loudness(video, info, rep, target):
         return None
     I = float(I.group(1))
     peak = float(P.group(1)) if P and P.group(1) != '-inf' else None
-    off = abs(I - target)
-    rep.add(FAIL if off > 2 else WARN if off > 1 else INFO, 'sound:loudness',
-            f'Integrated loudness {I:.1f} LUFS (target {target:g})')
+    sev, _off = loudness_mark(I, target)
+    rep.add(sev, 'sound:loudness', f'Integrated loudness {I:.1f} LUFS (target {target:g})')
     if peak is not None:
-        rep.add(FAIL if peak > 0 else WARN if peak > -1.0 else INFO, 'sound:peak', f'True peak {peak:.1f} dBTP (keep ≤ -1)')
+        rep.add(peak_mark(peak), 'sound:peak', f'True peak {peak:.1f} dBTP (keep ≤ -1)')
     # Short-term loudness spikes: "music gets randomly loud".
     pts = [(float(t), float(s)) for t, s in re.findall(r't:\s*([\d.]+)\s+TARGET.*?S:\s*(-?[\d.]+)', err)]
     loud, cur = [], None
@@ -848,7 +872,7 @@ def check_speech(video, info, a, rep, out):
                 rep.add(WARN, 'sound:sfx-on-word', f'SFX "{name}" starts inside the word "{hit["w"]}" (move it just after)', t, t)
 
     # 5. Dead air between words.
-    gap_max = a.max_gap or (1.0 if info['h'] > info['w'] else 1.5)
+    gap_max = dead_air_limit(info['h'] > info['w'], a.max_gap)
     for p, q in zip(heard, heard[1:]):
         g = q['s'] - p['e']
         if g > gap_max:

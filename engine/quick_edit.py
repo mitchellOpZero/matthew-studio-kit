@@ -148,6 +148,25 @@ def _binds_left(text):
     return t in {"%", "‰"} or (bool(t) and not any(ch.isalnum() for ch in t))
 
 
+_CLAUSE_START = {"and", "but", "so", "or", "because"}
+
+
+def _ends_clause(text):
+    """A word that closes a clause: sentence end or a comma, semicolon, or colon."""
+    t = str(text).rstrip().rstrip("\"'”’)")
+    return t.endswith((".", "!", "?", ",", ";", ":"))
+
+
+def _starts_clause(text):
+    n = re.sub(r"[^a-z']", "", str(text).lower())
+    return n in _CLAUSE_START
+
+
+def _clause_wall(left, right):
+    """True when these two chunks meet on a clause edge and must not be glued back together."""
+    return bool(left and right) and (_ends_clause(left[-1]["w"]) or _starts_clause(right[0]["w"]))
+
+
 def caption_chunks(words, total, edl, st):
     """Output words -> caption chunks [(words, start, end)], after caption_breaks, min on-screen time and caption_hide.
     Shared by the ASS writer and the timeline, so both show exactly the same captions."""
@@ -163,12 +182,14 @@ def caption_chunks(words, total, edl, st):
         forced = bool(cur) and any(abs(w.get("ss", -9) - t) <= 0.03 for t in brk)
         full = bool(cur) and (len(cur) >= cap_words or sum(len(x["w"]) + 1 for x in cur) + len(w["w"]) > st["max_chars"] * nl
                     or w["s"] - cur[-1]["e"] > st["gap_break_s"] or cur[-1]["piece_end"] <= w["s"] + 1e-6 and w["s"] - cur[-1]["e"] > 0.12)
+        # Clause edge: after . ! ? , ; : and before and/but/so/or/because. A % still sticks to its number.
+        clause = bool(cur) and not stick and (_ends_clause(cur[-1]["w"]) or _starts_clause(w["w"]))
         if stick and (forced or full):
             last = cur.pop()
             if cur:
                 chunks.append(cur)
             cur = [last]
-        elif forced or full:
+        elif forced or full or clause:
             chunks.append(cur); cur = []
         cur.append(w)
     if cur: chunks.append(cur)
@@ -178,7 +199,11 @@ def caption_chunks(words, total, edl, st):
         nxt = chunks[i + 1][0]["s"] if i + 1 < len(chunks) else total
         if len(chunks) > 1 and min(nxt, chunks[i][-1]["e"] + 0.6) - chunks[i][0]["s"] < mn - 1e-6:
             j = i + 1 if i + 1 < len(chunks) else i - 1
-            lo, hi_ = min(i, j), max(i, j); chunks[lo:hi_ + 1] = [chunks[lo] + chunks[hi_]]; i = max(0, lo - 1); continue
+            lo, hi_ = min(i, j), max(i, j)
+            if _clause_wall(chunks[lo], chunks[hi_]):
+                i += 1
+                continue
+            chunks[lo:hi_ + 1] = [chunks[lo] + chunks[hi_]]; i = max(0, lo - 1); continue
         i += 1
     out = []
     for i, c in enumerate(chunks):

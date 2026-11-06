@@ -550,9 +550,45 @@ def cmd_preview(a) -> int:
     return 0
 
 
+def qa_extra_args(job: Path | None) -> list[str]:
+    """Flags the QA gate already accepts: output-timed words, the voice stem, and the style's loudness target.
+
+    Source-word times are not passed. They still sit on the raw clip's clock, so a cut would look like a missing word.
+    The voice stem is the one HyperFrames mixed (`.work/_studio/<job>/assets/voice.wav`), written at render time.
+    """
+    if job is None or not (job / "edl.json").is_file():
+        return []
+    edl = json.load(open(job / "edl.json"))
+    extra: list[str] = []
+    words_rel = edl.get("words")
+    if words_rel:
+        src = Path(words_rel) if Path(words_rel).is_absolute() else job / words_rel
+        if src.is_file():
+            import quick_edit as qe
+            raw = qe.load_words(str(src))
+            st = qe.resolve_style(edl)
+            fps = int((edl.get("output") or {}).get("fps", 30))
+            pieces = qe.build_pieces(edl, raw, st, fps)
+            mapped, _total = qe.map_words(raw, pieces)
+            out_words = job / "out" / "qa-words.json"
+            out_words.parent.mkdir(parents=True, exist_ok=True)
+            payload = {"words": [{"w": w["w"], "s": round(w["s"], 3), "e": round(w["e"], 3)} for w in mapped]}
+            if edl.get("sfx"):
+                payload["sfx"] = [[s.get("file", ""), s.get("at", 0)] for s in edl["sfx"]]
+            json.dump(payload, open(out_words, "w"))
+            extra += ["--words", str(out_words)]
+            target = (st.get("loudness") or {}).get("I")
+            if target is not None:
+                extra += ["--target-lufs", str(target)]
+    voice = KIT / ".work" / "_studio" / job.name / "assets" / "voice.wav"
+    if voice.is_file():
+        extra += ["--dialogue", str(voice)]
+    return extra
+
+
 def run_qa(mp4: Path, job: Path | None) -> str:
     out = (job / "out" / "qa") if job else mp4.with_suffix("").parent / f"{mp4.stem}_qa"
-    cmd = [py(), str(ENGINE / "qa.py"), str(mp4), "--out", str(out), "--model", "small.en"]
+    cmd = [py(), str(ENGINE / "qa.py"), str(mp4), "--out", str(out), "--model", "small.en", *qa_extra_args(job)]
     subprocess.call(cmd, env=env())
     try:
         return json.load(open(out / "qa.json")).get("verdict", "FAIL")
