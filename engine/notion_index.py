@@ -257,7 +257,28 @@ def refresh(index, layout, inventory, rows, root, force=False):
         if not matches_inventory(supplied_sig, listed_sig):
             raise ValueError('page export differs from inventory; rescan before indexing')
         active = []
+        names = [x['name'] for x in row.get('files', [])]
+        body, title = row.get('body', ''), plain_title(row.get('title', ''))
+        explicit_tags = row.get('tags', [])
+        kind = row.get('kind') or layout['roles'][row['role']].get('kind') or {'broll': 'broll', 'graphics': 'graphic', 'pictures': 'picture', 'styles': 'style'}.get(row['role'], 'graphic')
         for f in row.get('files', []):
+            if not f.get('path'):
+                # Listed only: the file stays in Notion until an edit uses it (library attach downloads it in).
+                key = pid + ':ref:' + hashlib.sha256(str(f.get('ref') or f['name']).encode()).hexdigest()[:16]
+                prev = work['entries'].get(key) or {}
+                origin = row.get('origin', '').lower()
+                work['entries'][key] = {'page_id': pid, 'sha256': None, 'role': row['role'], 'kind': kind,
+                    'title': title, 'file_name': f['name'], 'file_names': names, 'body': body,
+                    'last_edited_time': row.get('last_edited_time'), 'ref': f.get('ref'), 'path': None, 'downloaded': False,
+                    'tags': sorted(expand(tokens(' '.join([title, *names, body, *explicit_tags])))),
+                    'origin': origin if origin in {'ai', 'stock'} else infer_origin(title, body, names),
+                    'origin_basis': 'explicit metadata or lexical inference; not licence verification',
+                    'media': {}, 'poster': None, 'stale': False, 'explicit_tags': explicit_tags}
+                for field in ('ai_sort', 'sort_frames'):
+                    if field in prev:
+                        work['entries'][key][field] = copy.deepcopy(prev[field])
+                active.append(key)
+                continue
             path = Path(f['path']).expanduser().resolve(strict=True)
             digest = sha256(path)
             if f.get('sha256') and f['sha256'] != digest:
@@ -282,7 +303,7 @@ def refresh(index, layout, inventory, rows, root, force=False):
                 'last_edited_time': row.get('last_edited_time'), 'ref': f.get('ref'), 'path': str(path),
                 'tags': sorted(expand(tokens(' '.join([title, *names, body, *explicit_tags])))),
                 'origin': origin, 'origin_basis': 'explicit metadata or lexical inference; not licence verification',
-                'media': metadata, 'poster': poster, 'stale': False, 'explicit_tags': explicit_tags}
+                'media': metadata, 'poster': poster, 'stale': False, 'explicit_tags': explicit_tags, 'downloaded': True}
             for field in ('ai_sort', 'sort_frames'):
                 if prev and field in prev:
                     work['entries'][key][field] = copy.deepcopy(prev[field])
@@ -300,6 +321,25 @@ def refresh(index, layout, inventory, rows, root, force=False):
     index.update(work)
     return {'reread': p['fetch'], 'unchanged': p['unchanged'], 'stale': p['stale'],
             'entries': len(index['entries']), 'active': sum(not e['stale'] for e in index['entries'].values())}
+
+
+def attach(index, page_id, path, root):
+    """Bring in one file an edit is about to use: hash, probe and poster it, then mark it downloaded."""
+    path = Path(path).expanduser().resolve(strict=True)
+    listed = [(k, e) for k, e in index['entries'].items() if e['page_id'] == page_id and not e['stale']]
+    if not listed:
+        raise ValueError('no indexed page ' + page_id + '; refresh the library first')
+    key, entry = next(((k, e) for k, e in listed if e.get('file_name') == path.name), listed[0])
+    digest = sha256(path)
+    media = media_info(path)
+    poster = make_local_poster(path, Path(root) / 'posters' / (page_id + '-' + digest[:16] + '.png'))
+    if not media.get('width'):
+        media = media_info(poster)
+    new = dict(entry, sha256=digest, path=str(path), media=media, poster=poster, downloaded=True)
+    if key != page_id + ':' + digest:
+        index['entries'].pop(key)
+    index['entries'][page_id + ':' + digest] = new
+    return {'attached': page_id, 'path': str(path), 'media': media}
 
 
 def find(index, query, kind=None, origin=None, aspect=None, limit=10, ignore_body=False):
@@ -322,7 +362,7 @@ def find(index, query, kind=None, origin=None, aspect=None, limit=10, ignore_bod
         ai_fields['origin'] = e['origin'] if visual else ''
         ai_matches = {k: expanded & (expand(tokens(v)) - removed) for k, v in ai_fields.items()}
         ai_overlap = set().union(*ai_matches.values()) if ai_matches else set()
-        if e['stale'] or e['exclude'] or (kind and e['kind'] != kind) or (origin and e['origin'] != origin) or (aspect and e['media']['aspect'] != aspect):
+        if e['stale'] or e['exclude'] or (kind and e['kind'] != kind) or (origin and e['origin'] != origin) or (aspect and (e.get('media') or {}).get('aspect') != aspect):
             continue
         if q and q <= removed:
             continue
@@ -333,6 +373,9 @@ def find(index, query, kind=None, origin=None, aspect=None, limit=10, ignore_bod
         if q and not overlap and fuzzy < .45:
             continue
         score = 60 * len(overlap) / max(1, len(expanded)) + 25 * len(q & title) / max(1, len(q)) + 15 * fuzzy + 70 * len(ai_overlap) / max(1, len(expanded))
+        if e.get('downloaded') is False:
+            e['next_step'] = ('not on this Mac yet: download this file through the Notion connection, then '
+                              f"bin/kit library attach {e['page_id']} <downloaded file>")
         hits.append({**e, 'score': round(score, 2), 'match_reasons': ['tokens/synonyms: ' + ', '.join(sorted(overlap)), f'title fuzzy ratio: {fuzzy:.3f}'] + [f"{'manual' if k == 'origin' and 'origin' in index['overrides'].get(e['page_id'], {}) else 'ai'}.{k}={ai_fields[k]}" for k, matched in ai_matches.items() if matched]})
     return sorted(hits, key=lambda e: (-e['score'], e['title'], e['file_name']))[:limit]
 
@@ -639,9 +682,9 @@ def run(args):
         result = notion_sort.run(args, index_path)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
-    payload = read_json(args.input or '-') if args.action not in {'find'} else None
+    payload = read_json(args.input or '-') if args.action not in {'find', 'attach'} else None
     index = read_json(index_path, empty_index())
-    if args.action != 'find' and payload is None:
+    if args.action not in {'find', 'attach'} and payload is None:
         raise ValueError('input JSON file does not exist')
     if args.action in {'index', 'workflow'} and not Path(layout_path).expanduser().is_file():
         raise ValueError('layout config missing; run library detect with MCP schema exports first')
@@ -659,6 +702,11 @@ def run(args):
         set_override(index, payload['page_id'], payload['patch'])
         save_json(index_path, index)
         result = index['overrides']
+    elif args.action == 'attach':
+        if len(args.args) != 2:
+            raise ValueError('kit library attach <page_id> <downloaded file>')
+        result = attach(index, args.args[0], args.args[1], Path(index_path).expanduser().parent)
+        save_json(index_path, index)
     elif args.action == 'find':
         if args.limit < 1:
             raise ValueError('limit must be positive')

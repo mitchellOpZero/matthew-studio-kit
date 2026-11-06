@@ -1247,7 +1247,7 @@ def cmd_capcut(a) -> int:
 def cmd_library(a) -> int:
     sys.path.insert(0, str(ENGINE))
     import library
-    if a.action in {"setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"}:
+    if a.action in {"setup", "detect", "plan", "index", "attach", "find", "override", "workflow", "sort", "upload"}:
         import notion_index
         try:
             if a.action == "upload":
@@ -1288,7 +1288,7 @@ def main() -> int:
     g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
     b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
     lb = sp.add_parser("library")
-    lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "find", "override", "workflow", "sort", "upload"])
+    lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "attach", "find", "override", "workflow", "sort", "upload"])
     lb.add_argument("args", nargs="*")
     lb.add_argument("--type", choices=["broll", "picture", "sfx"]); lb.add_argument("--name"); lb.add_argument("--tags")
     lb.add_argument("--role"); lb.add_argument("--origin", choices=["ai", "stock", "own", "unknown"])
