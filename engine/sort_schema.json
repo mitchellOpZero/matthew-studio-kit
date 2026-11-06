@@ -1,0 +1,92 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entry_key", "subject", "setting", "people", "mood", "shot_type", "time_of_day",
+    "origin", "description", "confidence", "sorted_at", "file_sha256", "frame_hashes",
+    "sorter", "ignore_body"
+  ],
+  "properties": {
+    "entry_key": {"type": "string", "minLength": 1, "maxLength": 200},
+    "subject": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "app", "bar", "building", "cafe", "car", "chat", "city", "clothes", "coffee",
+          "crowd", "door", "drink", "face", "food", "graphic", "gym", "hand", "indoor",
+          "logo", "mirror", "night", "outdoor", "phone", "profile", "screen", "skyline",
+          "street", "text"
+        ]
+      }
+    },
+    "setting": {
+      "type": "string",
+      "enum": [
+        "unknown", "phone-screen", "dating-app", "text-thread", "cafe", "coffee-shop",
+        "bar", "club", "street", "city", "skyline", "gym", "home", "studio", "office",
+        "car", "outdoor", "indoor", "night"
+      ]
+    },
+    "people": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": {"type": "string", "enum": ["0", "1", "2", "3+"]}
+      }
+    },
+    "mood": {
+      "type": "string",
+      "enum": ["neutral", "calm", "energetic", "serious", "playful", "warm", "tense", "confident", "unknown"]
+    },
+    "shot_type": {
+      "type": "string",
+      "enum": ["graphic", "wide", "medium", "close-up", "detail", "pov", "overhead", "screen", "insert"]
+    },
+    "time_of_day": {
+      "type": "string",
+      "enum": ["unknown", "day", "night", "dusk", "dawn", "indoor"]
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "confidence", "evidence"],
+      "properties": {
+        "value": {"type": "string", "enum": ["unknown", "ai", "stock", "own"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "note": {"type": "string", "minLength": 1, "maxLength": 200},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "detail"],
+            "properties": {
+              "source": {"type": "string", "enum": ["vision", "name", "body"]},
+              "detail": {"type": "string", "minLength": 1, "maxLength": 300}
+            }
+          }
+        }
+      }
+    },
+    "description": {"type": "string", "minLength": 1, "maxLength": 280},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "sorted_at": {"type": "string", "format": "date-time"},
+    "file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "frame_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "sorter": {"type": "string", "const": "codex-vision"},
+    "ignore_body": {"type": "boolean"}
+  }
+}
