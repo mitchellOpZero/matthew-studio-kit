@@ -36,3 +36,14 @@ Long-form needs something to look at every 10-20 s besides his face. From his li
 
 ## 5. Report
 The `done/` path, the length, the QA verdict, the section list with output times (YouTube chapters: `0:00 Intro`, ... from your plan), and what was cut.
+
+## Voice processing
+
+Version 2.2.1 builds previews with light rumble/noise cleanup and bounded leveling for each
+real cut, then fixed-gain mastering at the existing style's loudness target. This does not
+change the visual style or add music/SFX. Do not copy a different editor's visual defaults.
+For an already cleaned source, set `audio.cleanup` to `false` in the edit plan if needed;
+keep any existing `audio.file`, `audio.offset` and `audio.pre` fields. See `docs/AUDIO.md`.
+Existing hand-edited previews are preserved. Do not force-rebuild one to apply audio updates.
+Inspect it with `bin/kit support inspect <job>`; make a separate comparison job from the same
+source and saved style, or obtain explicit approval before overwriting the hand edits.

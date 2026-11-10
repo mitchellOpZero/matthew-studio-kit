@@ -6,6 +6,7 @@ Any output shape: 9:16 Shorts, 16:9 long-form (edl output w/h), every camera and
 import hashlib, json, math, os, subprocess
 
 import quick_edit as qe
+import audio_clean
 
 KIT = qe.KIT
 CONFORM = os.path.join(KIT, ".cache", "conform")
@@ -103,25 +104,34 @@ def dialogue(edl, edl_dir, src, pieces, st, total):
         if fin: segs.append([x, y, o])
         else: segs[-1][1] = y
         o += y - x
-    key = hashlib.sha256(json.dumps([sha_file(asrc), aofs, xf, segs, total, aud.get("pre")]).encode()).hexdigest()[:20]
+    cleanup = aud.get("cleanup", True)
+    if not isinstance(cleanup, bool):
+        qe.die('audio.cleanup must be true or false')
+    key = hashlib.sha256(json.dumps([audio_clean.VERSION, sha_file(asrc), aofs, xf, segs, total, aud.get("pre"), cleanup]).encode()).hexdigest()[:20]
     os.makedirs(DLG, exist_ok=True)
     out = os.path.join(DLG, f"{key}.wav")
     if os.path.exists(out): return out
     args, fc = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostdin"], []
+    levels = []
     for j, (x, y, oo) in enumerate(segs):
         pre = h if j > 0 else 0.0; post = h if j < len(segs) - 1 else 0.0
         args += ["-ss", f"{x - pre - aofs:.4f}", "-t", f"{y - x + pre + post:.4f}", "-i", asrc]
         L_ = y - x + pre + post
         fd = (f",afade=t=in:d={2 * pre:.4f}" if pre else "") + (f",afade=t=out:st={L_ - 2 * post:.4f}:d={2 * post:.4f}" if post else "")
         dl = int(round((oo - pre) * SR))
-        fc.append(f"[{j}:a:0]aresample={SR},aformat=channel_layouts=stereo,atrim=duration={L_:.4f},asetpts=PTS-STARTPTS{fd},adelay={dl}S|{dl}S[a{j}]")
+        level = audio_clean.piece_gain(asrc, x - aofs, y - x) if cleanup else {'gain_db': 0.0}
+        levels.append({'cut': j, **level})
+        clean = f",{audio_clean.CLEAN_FILTER},volume={level['gain_db']:.4f}dB" if cleanup else ''
+        fc.append(f"[{j}:a:0]aresample={SR},aformat=channel_layouts=stereo,atrim=duration={L_:.4f},asetpts=PTS-STARTPTS{clean}{fd},adelay={dl}S|{dl}S[a{j}]")
     fc.append("".join(f"[a{j}]" for j in range(len(segs))) + (f"amix=inputs={len(segs)}:normalize=0:duration=longest," if len(segs) > 1 else "")
               + f"apad=whole_dur={total:.6f},atrim=duration={total:.6f}" + (f",{aud['pre']}" if aud.get("pre") else "") + "[ac]")
     # whole_dur and -t both cap the length: an open-ended pad can otherwise write without end
-    r = subprocess.run(args + ["-filter_complex", ";".join(fc), "-map", "[ac]", "-t", f"{total:.6f}", "-c:a", "pcm_s16le", "-ar", str(SR), out + ".tmp.wav"],
+    r = subprocess.run(args + ["-filter_complex", ";".join(fc), "-map", "[ac]", "-t", f"{total:.6f}", "-c:a", "pcm_f32le", "-ar", str(SR), out + ".tmp.wav"],
                        capture_output=True, text=True)
     if r.returncode: qe.die(f"building the dialogue track failed: {r.stderr[-600:]}")
     os.replace(out + ".tmp.wav", out)
+    with open(out + '.json', 'w') as report:
+        json.dump({'pipeline': audio_clean.VERSION, 'cleanup': cleanup, 'cuts': levels}, report, indent=2)
     return out
 
 
@@ -227,6 +237,7 @@ def build(edl_path, full=True):
     font_file = qe._font_path(st); FONT = media_key("font", font_file)
     media[FONT] = font_file
     tl = {"fps": fps, "width": W, "height": H, "frames": frames, "src_w": iw, "src_h": ih,
+          "audio_processing": {"pipeline": audio_clean.VERSION, "cleanup": (edl.get("audio") or {}).get("cleanup", True)},
           "style_name": edl.get("style_name") or "", "style": style, "font": FONT,
           "dialogue": dlg, "camera": cam, "captions": caps, "overlays": ovs, "broll": broll, "sfx": sfx, "graphics": gfx, "blocks": blocks,
           "caption_place": place}

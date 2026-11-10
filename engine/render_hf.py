@@ -13,6 +13,7 @@ import glob, hashlib, html, json, math, os, re, shutil, subprocess, sys, time, u
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import quick_edit as qe  # noqa: E402
 import timeline as tlm  # noqa: E402
+import audio_clean  # noqa: E402
 
 KIT = qe.KIT
 ENGINE = os.path.join(KIT, "engine")
@@ -101,11 +102,9 @@ def _unsupported(tl):
 
 
 def voice_track(tl, out):
-    """His voice: the sample-exact dialogue layer, loudness-normalized and end-faded."""
+    """Cleaned, leveled dialogue mastered at the existing style's loudness target."""
     st = tl["style"]; L = st["loudness"]; total = tl["frames"] / tl["fps"]; ef = float(st.get("end_fade_s", 0.15))
-    af = (f"loudnorm=I={L['I']}:TP={L['TP']}:LRA={L['LRA']},aresample=48000,apad,atrim=duration={total:.4f}"
-          + (f",afade=t=out:st={total - ef:.4f}:d={ef:.4f}:curve=cub" if ef else ""))
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-nostdin", "-i", tl["dialogue"], "-af", af, "-c:a", "pcm_s16le", out], check=True)
+    return audio_clean.master(tl['dialogue'], out, total, float(L['I']), float(L['TP']), ef)
 
 
 # ---------------------------------------------------------------- library blocks
@@ -371,7 +370,7 @@ def build(edl_path, force=False):
         x["dur_s"] = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
                                            media[x["file"]]], capture_output=True, text=True).stdout.strip() or 0.5)
     blocks_meta = {b["name"]: install_block(b["name"], proj, tl.get("style_name") or "") for b in tl.get("blocks") or []}
-    voice_track(tl, os.path.join(a, "voice.wav"))
+    tl.setdefault('audio_processing', {}).update(voice_track(tl, os.path.join(a, "voice.wav")))
     idx = os.path.join(proj, "index.html")
     open(idx, "w").write(write_html(tl, blocks_meta))
     open(os.path.join(proj, MARK), "w").write(_sha(idx))

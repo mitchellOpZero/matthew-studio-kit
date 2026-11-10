@@ -32,7 +32,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.2.0**. Older releases: 2.0.0, 2.0.1, 2.0.2.
+- `bin/kit version` shows the version and exact commit. This release is **2.2.1**. Older releases: 2.0.0, 2.0.1, 2.0.2.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
@@ -65,3 +65,10 @@ One fixed pipeline:
 - Library: `library/` (b-roll, pictures, sound effects), indexed from the Notion Content page you already have (`docs/NOTION-MCP.md`, `skills/library`). Codex can upload a b-roll clip, picture, or style, and title and tag reviewed B-roll, only on that page.
 
 Replaces the Remotion-based Matthew Edit Kit (1.x), which still works on its own if you need it.
+
+### Voice cleanup (2.2.1)
+
+Newly built previews use Mitchell's dialogue cleanup: a 70 Hz rumble filter, light noise
+reduction, and per-cut voice leveling capped at 8 dB. Mastering uses measured fixed gain
+and a limiter at the saved style's existing loudness target. Captions, graphics, fonts,
+punch-ins, music choices and saved styles are unchanged. See [audio details](docs/AUDIO.md).

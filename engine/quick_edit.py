@@ -222,10 +222,10 @@ def caption_chunks(words, total, edl, st):
 def measure_loud(p):
     e = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", p, "-vn", "-af", "ebur128=peak=true", "-f", "null", "-"],
                        capture_output=True, text=True).stderr
-    return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", e)[-1]), float(re.findall(r"Peak:\s+(-?[\d.]+) dBFS", e)[-1])
+    return float(re.findall(r"I:\s+(-?(?:[\d.]+|inf)) LUFS", e)[-1]), float(re.findall(r"Peak:\s+(-?(?:[\d.]+|inf)) dBFS", e)[-1])
 
 def loud_trim(mp4, target, tp):
-    """Single-pass loudnorm lands within ~1 LU; trim the integrated level onto the target (audio-only re-encode, video copied).
+    """Trim the rendered mix onto the style target after mixing (audio-only re-encode, video copied).
     The gain is solved on a lossless copy first (the true-peak limiter can eat part of it), then applied in ONE encode.
     alimiter runs with latency=1 so it adds no delay (it used to shift the audio late by its 2 ms attack)."""
     I, peak = measure_loud(mp4)

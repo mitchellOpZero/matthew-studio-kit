@@ -6,7 +6,7 @@ can inspect the evidence from GitHub, then prepare a normal kit update.
 
 ## On Matthew's computer
 
-From the kit folder, after updating to 2.2.0:
+From the kit folder, after updating to 2.2.0 or newer:
 
 ```sh
 bin/kit support enable

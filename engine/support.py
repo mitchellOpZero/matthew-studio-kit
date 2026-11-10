@@ -317,6 +317,15 @@ def provenance(job=None, root=None):
     mark = read_json(project / 'timeline.json', {}) or {}
     result['project_style_name'] = tag(mark.get('style_name', 'unknown'))
     result['warnings'] = []
+    processing = mark.get('audio_processing') or {}
+    if not isinstance(processing, dict):
+        processing = {}
+    result['audio_processing'] = {k: v for k, v in processing.items()
+                                  if k in {'cleanup', 'gain_db', 'target_lufs', 'measured_lufs', 'measured_peak_db'}
+                                  and isinstance(v, (bool, int, float))}
+    result['audio_processing']['pipeline'] = tag(processing.get('pipeline', 'legacy-or-unknown'))
+    if html.is_file() and processing.get('pipeline') != 'dialogue-clean-v1':
+        result['warnings'].append('preview has older or unknown audio processing; an update alone does not replace hand-edited previews')
     if html.is_file() and (project / '.kit-generated').is_file():
         generated_hash = (project / '.kit-generated').read_text().strip()
         actual = hashlib.sha256(re.sub(r' data-hf-id="[^"]*"', '', html.read_text()).encode()).hexdigest()
