@@ -45,7 +45,7 @@ class SortTests(unittest.TestCase):
         self.assertEqual(ni.find(self.index,'dating profile',ignore_body=True),[])
         self.assertTrue(ni.find(self.index,'favorite',ignore_body=True))
         ni.set_override(self.index,'p',{'exclude':True});self.assertEqual(ni.find(self.index,'phone',ignore_body=True),[])
-    def test_writeback_always_off_even_with_legacy_opt_in(self):
+    def test_a_phrase_without_a_fresh_snapshot_never_plans_a_write(self):
         ns.apply(self.index,[self.record])
         for phrase in [None, 'save tags', ns.OPT_IN]:
             for page in [None, 'p']:
@@ -64,7 +64,7 @@ class SortTests(unittest.TestCase):
         self.index['entries'][self.key]['title'] = 'dating profile'
         ns.apply(self.index,[self.record]);ni.set_override(self.index,'p',{'tags_remove':['profile']})
         self.assertEqual(ni.find(self.index,'dating profile',ignore_body=True),[])
-    def test_writeback_disabled_with_overrides(self):
+    def test_no_snapshot_no_patches_with_overrides(self):
         ns.apply(self.index,[self.record]);ni.set_override(self.index,'p',{'origin':'own'})
         self.assertEqual(ns.writeback(self.index,ns.OPT_IN,'p')['patches'],[])
         ni.set_override(self.index,'p',{'exclude':True})

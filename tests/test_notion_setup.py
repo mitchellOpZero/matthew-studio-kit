@@ -33,7 +33,7 @@ class SetupPlanTests(unittest.TestCase):
         steps = {s['role']: s for s in ni.setup_plan(dict(HUB, databases=dbs))['steps']}
         self.assertEqual(steps['broll']['action'], 'add_properties')
         self.assertEqual(steps['broll']['database_id'], 'db-b')
-        self.assertEqual(set(steps['broll']['properties']), {'Files & media', 'Tags', 'Origin', 'Duration (s)'})
+        self.assertEqual(set(steps['broll']['properties']), {'Files & media', 'Tags', 'Origin', 'Duration (s)', 'Original title'})
         # his graphics table already has a files field and a Tags field of another type: nothing changed
         self.assertEqual(steps['graphics']['action'], 'reuse')
         self.assertIn('Tags is rich_text', steps['graphics']['notes'][0])
@@ -42,7 +42,7 @@ class SetupPlanTests(unittest.TestCase):
 
     def test_complete_page_needs_nothing(self):
         full = {'Name': {'type': 'title'}, 'Files & media': {'type': 'files'}, 'Tags': {'type': 'multi_select'},
-                'Origin': {'type': 'select'}, 'Duration (s)': {'type': 'number'}}
+                'Origin': {'type': 'select'}, 'Duration (s)': {'type': 'number'}, 'Original title': {'type': 'rich_text'}}
         dbs = [{'title': t, 'database_id': t, 'schema': full} for t in ['B Roll', 'Pictures', 'Graphics', 'Styles']]
         self.assertEqual({s['action'] for s in ni.setup_plan(dict(HUB, databases=dbs))['steps']}, {'reuse'})
 

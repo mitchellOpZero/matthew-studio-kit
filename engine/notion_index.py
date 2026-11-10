@@ -3,8 +3,9 @@
 No network and no credentials. Codex talks to Notion through the connection already
 signed in. This module never calls Notion. Only the one-time setup plan names tables or
 fields to add (on his Content page, after his OK); nothing here deletes or renames them.
-Sort tags and QA status stay on this Mac. An upload plan is valid only for the
-workspace id and hub id saved from the Content page authorized in this session.
+QA status stays on this Mac. Reviewed B-roll titles and tags reach Notion only through
+the plan in notion_sort.writeback_plan. Every plan is valid only for the workspace id and
+hub id saved from the Content page authorized in this session.
 """
 import copy
 import difflib
@@ -17,7 +18,10 @@ import subprocess
 import sys
 
 STOP = set('a an the of in on at to for and or with from by is are this that it as was were be made via test clip file png mp4 jpg jpeg svg html webm com https www'.split())
-SYNONYMS = [set('bar club nightlife'.split()), set('cafe coffee café'.split()), set('city skyline downtown'.split()), set('profile dating hinge'.split()), set('chat message conversation'.split())]
+SYNONYMS = [set('bar club nightlife'.split()), set('cafe coffee café'.split()), set('city skyline downtown'.split()), set('profile dating hinge'.split()), set('chat message conversation'.split()),
+            # Everyday search words for the fixed labels. A convenience for lookup only: nothing about age or identity is read into a clip.
+            set('woman women girl girls lady female'.split()), set('man men guy guys male'.split()),
+            set('brown brunette'.split()), set('blonde blond'.split()), set('red redhead ginger'.split()), set('gray grey'.split())]
 AI_WORDS = set('ai veo runway sora wan generated'.split())
 
 
@@ -134,8 +138,8 @@ def detect(payload):
     if workflow not in {'posts', 'videos'}:
         raise ValueError('workflow must be posts or videos')
     workspace_id, hub_id = payload.get('workspace_id'), payload.get('hub_id')
-    # notion_writeback stays false: sort tags and QA status are never pushed.
-    # asset_upload is the only remote write, and only when this session recorded a hub.
+    # notion_writeback stays false: no flag licenses a write, and QA status is never pushed.
+    # Uploads and the B-roll title/tag plan each need the hub this session recorded (asset_upload).
     return {'version': 1, 'notion_writeback': False,
             'asset_upload': 'authorized_hub' if workspace_id and hub_id else 'off',
             'workflow': workflow, 'workflow_settings': payload.get('workflow_settings', {}),
@@ -182,7 +186,7 @@ def plan(index, inventory, force=False):
         old = index['rows'].get(pid)
         changed = force or old is None or old.get('stale') or not matches_inventory(old['signature'], signature(row))
         for e in index['entries'].values():
-            if e['page_id'] == pid and not e['stale']:
+            if e['page_id'] == pid and not e['stale'] and e.get('path'):   # listed-only files have no local copy to check
                 path = Path(e['path'])
                 changed |= not path.is_file() or sha256(path) != e['sha256']
         (fetch if changed else unchanged).append(pid)
@@ -229,8 +233,10 @@ def effective(entry, index):
 
 
 def set_override(index, pid, patch):
-    if set(patch) - {'tags_add', 'tags_remove', 'origin', 'exclude'}:
+    if set(patch) - {'tags_add', 'tags_remove', 'origin', 'exclude', 'title'}:
         raise ValueError('unknown override field')
+    if 'title' in patch and (not isinstance(patch['title'], str) or not plain_title(patch['title'])):
+        raise ValueError('override title must be text')
     if 'origin' in patch and patch['origin'] not in {'ai', 'stock', 'own', 'unknown'}:
         raise ValueError('origin must be ai, stock, own or unknown')
     for key in ['tags_add', 'tags_remove']:
@@ -264,9 +270,20 @@ def refresh(index, layout, inventory, rows, root, force=False):
         for f in row.get('files', []):
             if not f.get('path'):
                 # Listed only: the file stays in Notion until an edit uses it (library attach downloads it in).
+                origin = row.get('origin', '').lower()
+                # Same attachment already downloaded for an edit or a review: keep the local copy and its review.
+                kept = next((k for k, e in work['entries'].items() if e['page_id'] == pid and not e['stale'] and e.get('downloaded')
+                             and f.get('ref') and e.get('ref') == f['ref'] and e['file_name'] == f['name']
+                             and e.get('path') and Path(e['path']).is_file() and k not in active), None)
+                if kept:
+                    work['entries'][kept].update({'title': title, 'file_names': names, 'body': body, 'kind': kind,
+                        'last_edited_time': row.get('last_edited_time'), 'explicit_tags': explicit_tags,
+                        'tags': sorted(expand(tokens(' '.join([title, *names, body, *explicit_tags])))),
+                        'origin': origin if origin in {'ai', 'stock'} else infer_origin(title, body, names)})
+                    active.append(kept)
+                    continue
                 key = pid + ':ref:' + hashlib.sha256(str(f.get('ref') or f['name']).encode()).hexdigest()[:16]
                 prev = work['entries'].get(key) or {}
-                origin = row.get('origin', '').lower()
                 work['entries'][key] = {'page_id': pid, 'sha256': None, 'role': row['role'], 'kind': kind,
                     'title': title, 'file_name': f['name'], 'file_names': names, 'body': body,
                     'last_edited_time': row.get('last_edited_time'), 'ref': f.get('ref'), 'path': None, 'downloaded': False,
@@ -320,7 +337,22 @@ def refresh(index, layout, inventory, rows, root, force=False):
     index.clear()
     index.update(work)
     return {'reread': p['fetch'], 'unchanged': p['unchanged'], 'stale': p['stale'],
-            'entries': len(index['entries']), 'active': sum(not e['stale'] for e in index['entries'].values())}
+            'entries': len(index['entries']), 'active': sum(not e['stale'] for e in index['entries'].values()),
+            'broll_labels_pending': broll_pending(index)}
+
+
+def broll_pending(index, limit=20):
+    """New or changed B-roll that has no current visual review yet. Cheap: reads the index only, downloads and hashes nothing."""
+    pages = []
+    for e in index['entries'].values():
+        review = e.get('ai_sort') or {}
+        done = e.get('sha256') and review.get('file_sha256') == e['sha256'] and 'action' in review
+        if e['role'] == 'broll' and not e['stale'] and not done and not index['overrides'].get(e['page_id'], {}).get('exclude') \
+                and e['page_id'] not in pages:
+            pages.append(e['page_id'])
+    return {'count': len(pages), 'pages': pages[:limit],
+            'note': 'B-roll without a reviewed title and tags. A refresh downloads nothing: tell him the count. Label them when '
+                    'he asked to add, sort or tag B-roll (library sort plan --batch N), a bounded batch at a time.'} if pages else {'count': 0, 'pages': []}
 
 
 def attach(index, page_id, path, root):
@@ -329,7 +361,11 @@ def attach(index, page_id, path, root):
     listed = [(k, e) for k, e in index['entries'].items() if e['page_id'] == page_id and not e['stale']]
     if not listed:
         raise ValueError('no indexed page ' + page_id + '; refresh the library first')
-    key, entry = next(((k, e) for k, e in listed if e.get('file_name') == path.name), listed[0])
+    named = [(k, e) for k, e in listed if e.get('file_name') == path.name]
+    if not named and len(listed) > 1:
+        raise ValueError('page ' + page_id + ' has several files; save the download under its Notion file name: '
+                         + ', '.join(sorted(e['file_name'] for _, e in listed)))
+    key, entry = (named or listed)[0]
     digest = sha256(path)
     media = media_info(path)
     poster = make_local_poster(path, Path(root) / 'posters' / (page_id + '-' + digest[:16] + '.png'))
@@ -358,7 +394,11 @@ def find(index, query, kind=None, origin=None, aspect=None, limit=10, ignore_bod
             e.pop('ai_sort', None)
             e['origin'] = index['overrides'].get(e['page_id'], {}).get('origin', base['origin'])
         removed = expand(tokens(' '.join(index['overrides'].get(e['page_id'], {}).get('tags_remove', []))))
-        ai_fields = {k: ' '.join(v) if isinstance(v, list) else v for k, v in visual.items() if k in {'subject', 'setting', 'mood', 'shot_type', 'time_of_day', 'description'}}
+        ai_fields = {k: ' '.join(v) if isinstance(v, list) else v for k, v in visual.items() if k in {'subject', 'setting', 'mood', 'shot_type', 'time_of_day', 'description', 'action'}}
+        if visual:
+            import notion_sort
+            ai_fields['labels'] = ' '.join(notion_sort.kit_tags(visual))
+            e['kit_title'] = index['overrides'].get(e['page_id'], {}).get('title') or notion_sort.kit_title(visual)
         ai_fields['origin'] = e['origin'] if visual else ''
         ai_matches = {k: expanded & (expand(tokens(v)) - removed) for k, v in ai_fields.items()}
         ai_overlap = set().union(*ai_matches.values()) if ai_matches else set()
@@ -472,7 +512,7 @@ def _style_from_body(body):
 def push_style(layout, style_path, *, title=None, workspace_id=None, hub_id=None):
     """Plan one Styles-database page whose body is the local style.json. Does not call Notion.
 
-    notion_writeback on the layout stays false (sort tags and QA never push). This plan is a style
+    notion_writeback on the layout stays false (it licenses nothing; QA never pushes). This plan is a style
     file only, and only when workspace and hub match the Content page authorized in this session.
     """
     ws, hub = _require_hub(layout, workspace_id, hub_id)
@@ -574,7 +614,16 @@ def upload_plan(layout, *, role, title, local_file, workspace_id=None, hub_id=No
             'role': role_key, 'database_id': database_id, 'data_source_id': configured.get('data_source_id'),
             'title': cleaned, 'local_file': str(path.resolve()), 'properties': properties,
             'files_property': files_prop, 'body': body, 'schema_columns_added': [],
-            'poster_upload': False,
+            'poster_upload': False, 'descriptive_labels': False,
+            # B-roll is not "added" until it carries a reviewed title and tags. The create is only the first half.
+            'completion_required': role_key == 'broll', 'title_is_provisional': role_key == 'broll',
+            'required_steps': ['Create the page (this plan). Its title is provisional: the name he gave, no claim about what it shows.',
+                               'Refresh the index, then library attach <new page id> <this local file> (no download needed).',
+                               'library sort frames, look at every frame, library sort apply.',
+                               'Fetch a fresh snapshot and library sort writeback --input snapshot.json --page-id <new page id>; apply its patch. '
+                               'His request to add the clip already covers this; do not ask again.',
+                               'Refresh the index, fetch again and re-run writeback. Tell him the clip is added only when the page is listed under unchanged. '
+                               'If a step is blocked, say the clip is in Notion but not yet titled and tagged, and why.'] if role_key == 'broll' else [],
             'instruction': 'Create one page in this database only if its workspace and parent hub still match '
                            'workspace_id and hub_id. Set only properties (the existing title). Attach the local file '
                            'to files_property. Put body on the page as content. Do not add, rename or delete properties, '
@@ -588,7 +637,7 @@ def upload_plan(layout, *, role, title, local_file, workspace_id=None, hub_id=No
 SETUP_ROLES = {
     'broll': {'title': 'B-roll Clips', 'names': {'broll', 'brollclips', 'brollclip', 'brolllibrary'},
               'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select',
-                             'Origin': 'select', 'Duration (s)': 'number'}},
+                             'Origin': 'select', 'Duration (s)': 'number', 'Original title': 'rich_text'}},
     'pictures': {'title': 'Pictures', 'names': {'pictures', 'picture', 'photos', 'images', 'screenshots'},
                  'properties': {'Name': 'title', 'Files & media': 'files', 'Tags': 'multi_select'}},
     'graphics': {'title': 'Motion Graphics', 'names': {'graphics', 'motiongraphics', 'motiongraphic', 'graphic'},
@@ -679,7 +728,7 @@ def run(args):
     index_path = args.index or os.environ.get('KIT_NOTION_INDEX', str(default / 'notion_index.json'))
     if args.action == 'sort':
         import notion_sort
-        result = notion_sort.run(args, index_path)
+        result = notion_sort.run(args, index_path, layout_path)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     payload = read_json(args.input or '-') if args.action not in {'find', 'attach'} else None

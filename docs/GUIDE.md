@@ -37,7 +37,7 @@ and say **"Make a style from this."** It copies the captions and zoom pacing int
 ## Your library (Notion)
 Your b-roll, pictures, graphics, and styles live on the Content page you already have in Notion. Codex sets up what the kit needs there for you (it keeps B Roll Clips and your Graphics table, adds the fields they need, and adds Pictures and Styles), and shows you the plan before it changes anything. You do not create an integration.
 
-Once: open that Content page, share it with the Notion connection Codex is already signed into (••• → Connections), then paste the page URL and say **"Use the library skill to set up my Content page and build the local index."** After that, "use the gym b-roll when I talk about the gym" finds what was indexed. Say **"refresh my library"** after you add something.
+Once: open that Content page, share it with the Notion connection Codex is already signed into (••• → Connections), then paste the page URL and say **"Use the library skill to set up my Content page and build the local index."** After that, "use the gym b-roll when I talk about the gym" finds what was indexed. Say **"refresh my library"** after you add something. Say **"sort my Notion"** and Codex looks at your B-roll clips, then puts a title (like `Woman - walking - cafe - brown hair`) and tags on each one in the B Roll table and tells you what changed. Your own tags stay, and the old title is kept in an Original title field. B-roll you ask Codex to add gets its title and tags the same way, right then. It asks first only if the table needs a new field.
 
 Codex can add a b-roll clip, a picture, or a style only on that Content page. It will not write to a different workspace, and it never deletes or renames anything.
 

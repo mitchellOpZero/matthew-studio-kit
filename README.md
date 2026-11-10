@@ -13,7 +13,7 @@ snap punch-ins, logo pops, and your voice at -14 LUFS. **matthew-long** is the s
    (No Homebrew yet? Install it from brew.sh first.)
 2. Open the **Codex app** on that folder and say **"set this up"**. Codex installs everything, checks it, brings over your
    saved styles from the old kit, and runs a first edit with you. No plugin is needed: Codex reads `AGENTS.md` in this folder.
-3. Later, say **"update my kit"** or **"update-my-kit"** to get the latest version from GitHub. Codex runs `bin/kit update`, which is a `git pull`. Your styles and library are kept. **2.0.2** connects the Notion Content page you already have and lets Codex file B-roll, pictures, and styles there. See `docs/NOTION-MCP.md`.
+3. Later, say **"update my kit"** or **"update-my-kit"** to get the latest version from GitHub. Codex runs `bin/kit update`, which is a `git pull`. Your styles and library are kept. **2.1.0** adds B-roll titles and tags on your Notion Content page: Codex looks at each clip, then proposes one consistent title (`Woman - walking - cafe - brown hair`) and descriptive tags on the B Roll table. Your own tags and the original title are kept, and every clip Codex adds is titled and tagged the same way. See `docs/NOTION-MCP.md`.
 
 ## Install by hand (what "set this up" does)
 The repo is private: you need a GitHub account with access (Mitchell sends the invite).
@@ -30,7 +30,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.0.2**. Older tags include `v2.0.0` and `v2.0.1`.
+- `bin/kit version` shows the version and exact commit. This release is **2.1.0**. Older releases: 2.0.0, 2.0.1, 2.0.2.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
@@ -45,6 +45,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 - "$episode": edits every clip in `inbox/`, opens them all in Studio, then renders the ones you approve to `done/`.
 - "Make my captions a bit smaller." Codex asks whether to save over your style or as a new one, then shows a preview. "Undo that" goes back.
 - "Refresh my library", "use the Hinge screenshot", "put a chat on screen here".
+- "Sort my Notion": Codex looks at your B-roll and puts searchable titles and tags on the B Roll table in Notion, then tells you what changed.
 - "Upload this Runway clip to my Content page." B-roll sources and the Notion setup are in `docs/NOTION-MCP.md`.
 
 Plain-words guide: `docs/GUIDE.md`.
@@ -59,6 +60,6 @@ One fixed pipeline:
 
 - Styles: `styles/<name>/style.json` (+ `STYLE.md`, caption designs and graphics in `templates/`), old versions in `versions/`.
 - Graphics: the kit's own (`graphics/`), about 200 HyperFrames library blocks (`bin/kit blocks search`), and ones built for you.
-- Library: `library/` (b-roll, pictures, sound effects), indexed from the Notion Content page you already have (`docs/NOTION-MCP.md`, `skills/library`). Codex can upload a b-roll clip, picture, or style only into that page.
+- Library: `library/` (b-roll, pictures, sound effects), indexed from the Notion Content page you already have (`docs/NOTION-MCP.md`, `skills/library`). Codex can upload a b-roll clip, picture, or style, and title and tag reviewed B-roll, only on that page.
 
 Replaces the Remotion-based Matthew Edit Kit (1.x), which still works on its own if you need it.

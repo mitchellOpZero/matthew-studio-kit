@@ -30,7 +30,9 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
                                                local Notion index commands (docs/NOTION-MCP.md)
   kit library upload <file> --role broll|pictures|styles --name <title> [--origin ai|stock|own|unknown]
                                                plan one create in the Content hub authorized this session
-  kit library sort plan|frames|apply|writeback local visual tags; writeback does not change Notion
+  kit library sort plan|frames|apply           look at b-roll frames and record what they show (local; --batch N to download)
+  kit library sort writeback --input snapshot.json [--page-id a,b]
+                                               plan reviewed B-roll titles and tags for his Notion B Roll table (prints a plan only)
   kit library sync|connect                     disabled; the Codex Notion connection is used instead
   kit report [--note "<what he was doing>"] [--dry-run]
                                                file a problem report for Mitchell as a GitHub issue: the last error, recent
@@ -1297,6 +1299,7 @@ def main() -> int:
     lb.add_argument("--aspect", choices=["vertical", "horizontal", "square"]); lb.add_argument("--limit", type=int, default=10)
     lb.add_argument("--frames-dir"); lb.add_argument("--qa-report"); lb.add_argument("--requested-status")
     lb.add_argument("--phrase"); lb.add_argument("--page-id")
+    lb.add_argument("--batch", type=int, default=10)
     lb.add_argument("--force", action="store_true"); lb.add_argument("--ignore-body", action="store_true")
     lb.add_argument("--human-posted", action="store_true"); lb.add_argument("--simulated", action="store_true")
     sp.add_parser("update"); sp.add_parser("prepare")
