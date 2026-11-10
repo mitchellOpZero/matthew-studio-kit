@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "matthew-studio-kit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Edit raw talking-head clips into finished Shorts and long-form videos in saved styles. Watch the whole edit live in HyperFrames Studio before anything renders; b-roll, pictures and graphics from your Notion library; QA-gated.",
   "license": "LicenseRef-Proprietary",
   "keywords": [
@@ -32,5 +32,6 @@
         ]
       }
     }
-  }
+  },
+  "hooks": "./hooks/hooks.json"
 }

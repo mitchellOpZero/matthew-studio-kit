@@ -1,0 +1,95 @@
+{
+  "description": "Opt-in kit support diagnostics. Disabled until kit support enable; review hooks in Codex.",
+  "hooks": {
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\" --flush",
+            "async": true,
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\" --flush",
+            "async": true,
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\"",
+            "timeout": 3,
+            "statusMessage": "Kit support diagnostics"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/observe.py\" --flush",
+            "async": true,
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

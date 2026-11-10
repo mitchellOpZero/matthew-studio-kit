@@ -15,6 +15,8 @@ snap punch-ins, logo pops, and your voice at -14 LUFS. **matthew-long** is the s
    saved styles from the old kit, and runs a first edit with you. No plugin is needed: Codex reads `AGENTS.md` in this folder.
 3. Later, say **"update my kit"** or **"update-my-kit"** to get the latest version from GitHub. Codex runs `bin/kit update`, which is a `git pull`. Your styles and library are kept. **2.1.0** adds B-roll titles and tags on your Notion Content page: Codex looks at each clip, then proposes one consistent title (`Woman - walking - cafe - brown hair`) and descriptive tags on the B Roll table. Your own tags and the original title are kept, and every clip Codex adds is titled and tagged the same way. See `docs/NOTION-MCP.md`.
 
+**Remote support (2.2.0):** say "turn on support diagnostics" to record redacted tool activity and graphic sources on a per-computer branch of this private GitHub repo. Mitchell can inspect the records and prepare a focused fix. Support starts only after enable and native hook review. [Support setup and limits](docs/SUPPORT.md).
+
 ## Install by hand (what "set this up" does)
 The repo is private: you need a GitHub account with access (Mitchell sends the invite).
 ```
@@ -30,7 +32,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.1.0**. Older releases: 2.0.0, 2.0.1, 2.0.2.
+- `bin/kit version` shows the version and exact commit. This release is **2.2.0**. Older releases: 2.0.0, 2.0.1, 2.0.2.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA

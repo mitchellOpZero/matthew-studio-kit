@@ -55,5 +55,5 @@ animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one ("s
 ## If something goes wrong
 - Codex tells you in plain words what failed. A failed video never lands in `done/`.
 - "Run setup" (or "check my kit") fixes missing installs.
-- If the kit itself breaks, Codex sends Mitchell a report on its own (the error and versions only: no video, no transcript).
-  The fix reaches you with the next update. You can also say **"send Mitchell a report"** any time.
+- Say **"turn on support diagnostics"** once. Codex explains the private GitHub destination and enables it after your request, then you review the hooks in Codex. Supported tool calls, errors and graphic sources sync as redacted technical records. Say **"turn off support diagnostics"** to stop. See `docs/SUPPORT.md`.
+- Mitchell can read the records from GitHub and prepare a fix for the next kit update. Issues, email and messages are prepared for explicit approval, never sent automatically.

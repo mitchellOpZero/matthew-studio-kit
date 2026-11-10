@@ -9,5 +9,6 @@ graphics/*/out/
 __pycache__/
 *.pyc
 my-styles/
+.codex/hooks.json
 library/*
 !library/README.md

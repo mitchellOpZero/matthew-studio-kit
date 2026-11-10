@@ -34,6 +34,8 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit library sort writeback --input snapshot.json [--page-id a,b]
                                                plan reviewed B-roll titles and tags for his Notion B Roll table (prints a plan only)
   kit library sync|connect                     disabled; the Codex Notion connection is used instead
+  kit support status|enable|disable|doctor|rules|compare|inspect|sync|remote
+                                               opt-in GitHub diagnostics; never changes styles or grants tool permissions
   kit report [--note "<what he was doing>"] [--dry-run]
                                                file a problem report for Mitchell as a GitHub issue: the last error, recent
                                                commands, versions (never a video, transcript or secret). Every command is
@@ -1273,6 +1275,9 @@ def cmd_library(a) -> int:
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "support":
+        import support
+        return support.main(sys.argv[2:])  # no renderer import or automatic dependency update
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("doctor"); sp.add_parser("version")
@@ -1326,21 +1331,28 @@ def logged_main() -> int:
     import traceback
     t0, argv = time.time(), sys.argv[1:]
     cmd = argv[0] if argv else ""
-    if cmd in ("report", "version", "-h", "--help", ""):
+    if cmd in ("support", "report", "version", "-h", "--help", ""):
         return main()
+    def log(code, error=""):
+        report.log_event(cmd, argv[1:], code, time.time() - t0, error)
+        try:
+            import support
+            support.kit_event(argv, code, time.time() - t0)
+        except Exception:
+            pass  # diagnostics must preserve the actual command's result
     try:
         code = main()
     except SystemExit as e:
         code = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
         if code and not LAST_ERROR and not isinstance(e.code, int):
-            report.log_event(cmd, argv[1:], code, time.time() - t0, str(e.code))
+            log(code, str(e.code))
         else:
-            report.log_event(cmd, argv[1:], code, time.time() - t0, LAST_ERROR if code else "")
+            log(code, LAST_ERROR if code else "")
         raise
     except BaseException:
-        report.log_event(cmd, argv[1:], 1, time.time() - t0, traceback.format_exc())
+        log(1, traceback.format_exc())
         raise
-    report.log_event(cmd, argv[1:], code or 0, time.time() - t0, LAST_ERROR if code else "")
+    log(code or 0, LAST_ERROR if code else "")
     return code
 
 
