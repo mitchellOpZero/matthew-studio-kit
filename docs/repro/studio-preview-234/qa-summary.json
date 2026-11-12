@@ -1,0 +1,13 @@
+{
+  "verdict": "FAIL",
+  "flags": [
+    {
+      "sev": "FAIL",
+      "check": "picture:edge-band",
+      "msg": "Empty strip along the edge (picture slid or scaled off the frame)",
+      "start": 0.6666666666666666,
+      "end": 1.3333333333333333,
+      "detail": "top 270px"
+    }
+  ]
+}

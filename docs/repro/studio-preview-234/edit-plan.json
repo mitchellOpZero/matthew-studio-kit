@@ -1,0 +1,58 @@
+{
+  "blocks": [
+    {
+      "at": 0,
+      "box": [
+        0,
+        185,
+        1080,
+        870
+      ],
+      "dur": 4.3,
+      "name": "cut-purpose"
+    }
+  ],
+  "broll": [],
+  "caption_breaks": [],
+  "caption_hide": [],
+  "cuts": [
+    {
+      "in": 0.0,
+      "out": 4.3
+    }
+  ],
+  "keywords": [
+    "Start",
+    "story"
+  ],
+  "name": "cut-with-purpose",
+  "output": {
+    "fps": 30,
+    "h": 1920,
+    "w": 1080
+  },
+  "overlays": [],
+  "sfx": [],
+  "source": "inputs/cut-with-purpose-source.mp4",
+  "source_acquisition": {
+    "computer_use": false,
+    "graphic_sha256": "7cc4aa64f5f532e0af1679d733ec957d258177d5ece8616f4f04ba2e2614e970",
+    "policy": "api_only",
+    "source_kind": "local-generated-test",
+    "source_sha256": "7c8a8c387d32d151bfb416a657dd5e4caf159622aa71dc521dcd914c23a75375",
+    "words_sha256": "088fe900791e751e99cf46cc416396ddf57f9983b21e257959e8998a3cc49442"
+  },
+  "style": {
+    "center_y_frac": 0.675,
+    "frame_layout": "full",
+    "highlight_color": "#C8FF54",
+    "punch": {
+      "even": false,
+      "every_s": 0,
+      "zoom_tight": 1,
+      "zoom_wide": 1
+    }
+  },
+  "style_name": "default",
+  "words": "inputs/words.json"
+}
