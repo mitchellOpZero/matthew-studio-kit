@@ -45,7 +45,7 @@ Writes are allowed only for the hub this session recorded (`workspace_id` and `h
 
 Before an edit that needs something he added in Notion this week, refresh the index (docs/NOTION-MCP.md), then find it. A refresh only lists his files; it never downloads them (his library can be huge). It reports `broll_labels_pending`, the B-roll that still has no reviewed title and tags: tell him the count. Download a file only when this edit uses it, then `bin/kit library attach <page_id> <file>` (docs/NOTION-MCP.md, "Using a Notion file in an edit").
 
-B-roll is his call. Draft leaves `broll` empty unless his style turns on automatic picks (`bin/kit style set <style> broll.auto=true`; then a clip whose name or tags share a keyword with the transcript is placed). When he asks for B-roll ("put gym b-roll when I talk about the gym", "add b-roll here"), find it with `bin/kit library find` and place it in `edl.json`.
+B-roll is optional and only when he asks (or when the style has `broll.auto=true`). Draft leaves `broll` empty otherwise. When he asks ("put gym b-roll when I talk about the gym", "add b-roll here"), pick clips from what he is saying: `bin/kit library find` against the transcript. If his library has no match, tell him about Mixkit (free stock) or Runway (AI B-roll) below and use a clip he adds. Fit it into the same clean layout — on a `premium-motion` Short, the top panel or a split/pip so his face stays in the lower half. Do not add B-roll unasked.
 
 ## Add a file he hands you
 

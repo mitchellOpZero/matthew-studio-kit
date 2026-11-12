@@ -5,10 +5,10 @@ description: "Edit a long-form 16:9 YouTube video from his raw camera footage (p
 
 # Long-form (16:9)
 
-Same pipeline as a Short (skills/edit-short), with a landscape frame, the `matthew-long` style, and more structure. Read skills/edit-short first; the rules below are what's different.
+Same pipeline and default look as a Short (skills/edit-short): real-world UI replicas, quality gate after every change, saved preferences on top. The frame is 16:9. Read skills/edit-short first; the rules below are what's different.
 
 ## 1. Draft
-`bin/kit draft <clip> --long --name <job>` (style `matthew-long` unless he named another). The source can be 4K; the kit frames it to 1920x1080.
+`bin/kit draft <clip> --long --name <job>`. The source can be 4K; the kit frames it to 1920x1080. The default look applies; saved preferences layer on top.
 If he recorded several camera files, draft each as its own job and keep the episode in one plan: the plan's `source` is one file, so for now edit one camera file per job and tell him which parts are in which job.
 
 ## 2. Plan the story (your judgment)
@@ -32,7 +32,7 @@ Long-form needs something to look at every 10-20 s besides his face. From his li
 - B-roll never freezes: `from` + `dur` must fit inside the clip (`bin/kit library list` shows clips; check the clip's length).
 
 ## 4. Preview, then wait
-`bin/kit preview <job>`, then his notes (skills/edit-short steps 4-5). Do not render until he says "render it", "render them", or "render 3 and 5". A creative long-form ask uses skills/graphics: save a new 16:9 style rather than stretching `premium-motion` across the frame. A plain long-form stays `matthew-long`.
+`bin/kit preview <job>`, then his notes (skills/edit-short steps 4-5). Do not render until he says "render it", "render them", or "render 3 and 5". Graphics follow skills/graphics: a side or inset panel, or a full-screen cutaway with his face returning — never over his face. Preferences layer on top and must not restore the old canned look.
 
 When he does ask for a render: `bin/kit render <job>`. A long render takes about the video's length again (a 10-minute video renders in roughly 8-12 minutes, then QA). Tell him the ETA before you start it, and don't stop the session while it runs. Run it so it can take that long (a background or long-running command you check on), not with a short command timeout; if the command is cut off, `bin/kit render <job>` again starts it over.
 

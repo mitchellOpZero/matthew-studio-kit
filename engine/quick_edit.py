@@ -246,12 +246,41 @@ def loud_trim(mp4, target, tp):
     if r.returncode: die(f"loudness trim failed: {r.stderr[-800:]}")
     os.replace(tmp, mp4); return round(g, 2)
 
+# Caption and voice refinements Matthew asks for. These layer on the default look and must
+# never replace layout, graphics, or the quality gate (no going back to a canned pack).
+PREF_PATH = os.path.join(KIT, "my-styles", "preferences.json")
+PREF_KEYS = {
+    "font", "font_file", "font_size_frac", "color", "highlight_color", "stroke_color", "stroke", "shadow",
+    "center_y_frac", "uppercase", "one_line", "max_words", "max_chars", "min_chunk_s", "gap_break_s",
+    "kw_sync_pop", "kw_pop_pct", "keyword_scale", "pop_scale", "pop_ms", "caption_template",
+}
+
+
+def load_preferences(path=None):
+    """Saved caption/look tweaks only. Unknown or layout/graphic keys are ignored."""
+    p = path or PREF_PATH
+    if not os.path.isfile(p):
+        return {}
+    try:
+        raw = json.load(open(p))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {k: v for k, v in raw.items() if k in PREF_KEYS}
+
+
 def resolve_style(edl):
-    """STYLE_DEFAULTS, then the named style, then any per-edit overrides in edl.style."""
+    """Default look, then the named style, then saved preferences, then any per-edit overrides in edl.style."""
     st = json.loads(json.dumps(STYLE_DEFAULTS))
-    for k, v in list(load_style(edl.get("style_name")).items()) + list((edl.get("style") or {}).items()):
-        if isinstance(v, dict) and isinstance(st.get(k), dict): st[k].update(v)
-        else: st[k] = v
+    layers = list(load_style(edl.get("style_name")).items())
+    layers += list(load_preferences().items())
+    layers += list((edl.get("style") or {}).items())
+    for k, v in layers:
+        if isinstance(v, dict) and isinstance(st.get(k), dict):
+            st[k].update(v)
+        else:
+            st[k] = v
     return st
 
 # ------------------------------------------------------------------ check (cheap, fixed)

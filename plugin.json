@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "matthew-studio-kit",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Edit raw talking-head clips into finished Shorts and long-form videos in saved styles. Watch the whole edit live in HyperFrames Studio before anything renders; b-roll, pictures and graphics from your Notion library; QA-gated.",
   "license": "LicenseRef-Proprietary",
   "keywords": [
@@ -17,7 +17,7 @@
       "interface": {
         "displayName": "Matthew Studio Kit",
         "shortDescription": "Shorts and long-form, previewed live before they render.",
-        "longDescription": "Draft, watch each edit live in its own HyperFrames Studio tab, change anything by asking or by hand, then render when you say so. Your look lives in a style you change by asking; old versions are kept. A creative ask uses premium motion graphics. B-roll, pictures and sound effects come from your Notion library; graphics from HyperFrames' block library and ones built for the video.",
+        "longDescription": "Draft, watch each edit live in its own HyperFrames Studio tab, change anything by asking or by hand, then render when you say so. The default look shows the real things you mention, in a clean layout. Say what to tweak and it is saved as a preference on top of that default. B-roll, pictures and sound effects come from your Notion library.",
         "developerName": "Matthew Studio Kit",
         "category": "Productivity",
         "capabilities": [
@@ -25,11 +25,11 @@
           "Write"
         ],
         "defaultPrompt": [
-          "Edit the clip in inbox with the matthew style.",
-          "Make a 15 second Short from this clip.",
+          "Make this a Short from the clip in inbox.",
+          "Make this a YouTube video from the clip in inbox.",
           "Make my captions a little smaller.",
-          "Make a long-form video from the clip in inbox.",
-          "Go crazy on the graphics for this clip.",
+          "Copy this reference video.",
+          "Add B-roll when I talk about the gym.",
           "Edit everything in inbox and open the previews."
         ]
       }

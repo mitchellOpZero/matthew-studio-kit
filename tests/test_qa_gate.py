@@ -68,5 +68,29 @@ class RenderHandoffTests(unittest.TestCase):
                 shutil.rmtree(studio, ignore_errors=True)
 
 
+
+class AsrMismatchTests(unittest.TestCase):
+    def test_whisper_gbt_gym_matches_gpt_gemini(self):
+        heard = [{"w": "GBT"}, {"w": "gym"}]
+        expected = [{"w": "GPT"}, {"w": "Gemini"}]
+        self.assertEqual(qa.canon(heard)[0], qa.canon(expected)[0])
+        self.assertEqual(qa.canon(heard)[0], ["gpt", "gemini"])
+
+    def test_gym_alone_is_not_gemini(self):
+        self.assertEqual(qa.canon(["gym"])[0], ["gym"])
+        self.assertEqual(qa.canon(["gbt"])[0], ["gpt"])
+
+    def test_accept_asr_mismatch_downgrades_only_asr_fails(self):
+        rep = qa.Report()
+        rep.add(qa.FAIL, "captions:missing", "2 spoken word(s) never captioned", 1.0, 1.4, detail="GBT gym")
+        rep.add(qa.FAIL, "safe:top", "Text in the top UI zone")
+        n = qa.apply_asr_override(rep, "whisper heard GBT gym for GPT Gemini; captions are on screen")
+        self.assertEqual(n, 1)
+        sev = {i["check"]: i["sev"] for i in rep.items}
+        self.assertEqual(sev["captions:missing"], qa.WARN)
+        self.assertEqual(sev["safe:top"], qa.FAIL)
+        self.assertEqual(rep.count(qa.FAIL), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

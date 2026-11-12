@@ -6,9 +6,9 @@ few one-time steps (installing Homebrew, logging in to GitHub, connecting Notion
 ## Edit a video
 1. Drop your raw clip in the `inbox` folder, or drag it straight into the Codex chat (Codex copies it into `inbox` for you).
 2. Ask Codex:
-   - "Edit the clip in inbox with my style." This cleans up the full clip.
+   - "Make this a Short." This cleans up the full clip, with graphics that look like the real things you mention.
    - "Make a 15 second Short from the clip in inbox." Codex picks the strongest 15 seconds.
-   - "Make a long-form video from the clip in inbox." A 16:9 YouTube edit.
+   - "Make this a YouTube video." A 16:9 YouTube edit, same default look.
    - "$episode" edits every clip in inbox and opens each one in its own Studio tab, numbered. Nothing renders yet. After you say "render them", finished clips move to `inbox/edited/`, so the next episode doesn't edit them twice.
 3. Codex gives you a **Studio link** for each video. Click it: the edit plays with your voice, captions, zooms and graphics. Nothing
    has been rendered yet, so changes are instant.
@@ -16,23 +16,20 @@ few one-time steps (installing Homebrew, logging in to GitHub, connecting Notion
    match"), or change it yourself in Studio: drag, trim, move things. Your hand changes are kept. The preview updates. Nothing is rendered yet.
 5. When you want the files, say **"render them"** for the whole batch, **"render 3 and 5"** for those numbers, or **"render it"** for the one you are watching. About a minute later each finished video is in `done/`, with a QA report beside it. "Looks good" does not render.
 
-Every edit removes pauses, ums and uhs, and retakes (it keeps your last take). Then it adds your captions, zooms and logo
-pops, keeps captions off your face, and sets the sound level. A video only goes into `done/` after it passes the quality check.
+Every edit removes pauses, ums and uhs, and retakes (it keeps your last take). Then it adds captions and real-looking
+graphics of the things you mention, keeps them off your face, and sets the sound level. A video only goes into `done/` after it passes the quality check.
 
 ## Change your look
-Ask in plain words, for example:
+Just say it, for example:
 - "Make my captions a little smaller."
+- "Make my captions red again."
 - "Put the captions a bit lower."
-- "Zoom in more often."
-- "Underline the keywords instead of making them red."
 
-Codex asks: **"Save over your style, or save as a new style?"** Then it shows you a preview. Your old version is always kept, so you can say:
-- **"Undo that"**
-- **"Go back to how it was yesterday"**
+Codex applies the change, saves it so it sticks on future videos, and checks the quality again. The default graphics and layout stay. You can say **"Undo that"** if you want it back.
 
-## A new look from a video you like
+## Copy a video you like
 Save the reel as a video file (download it, or screen-record it; a link won't work), drag the file into the Codex chat
-and say **"Make a style from this."** It copies the captions and zoom pacing into a new style. Then use it: "Edit this with the <name> style."
+and say **"Copy this reference video."** It matches that look on top of the same default quality.
 
 ## Your library (Notion)
 Your b-roll, pictures, graphics, and styles live on the Content page you already have in Notion. Codex sets up what the kit needs there for you (it keeps B Roll Clips and your Graphics table, adds the fields they need, and adds Pictures and Styles), and shows you the plan before it changes anything. You do not create an integration.
@@ -47,22 +44,11 @@ Codex can add a b-roll clip, a picture, or a style only on that Content page. It
 
 Say **"send it to CapCut"**. Codex renders the edit if it isn't yet, then makes a CapCut project with the whole finished video in it (captions, b-roll and graphics included). Quit and reopen CapCut: the project is in your Projects list, ready to trim, add music or text, or cut up. The kit's captions are part of the video there, so to change a caption, ask Codex to change the edit and send it again.
 
-## A richer look
-Say **"go crazy"**, **"be creative"**, or **"make the graphics look cool."** Codex switches to the premium-motion look
-(kinetic titles, a count-up stat, a sticker callout, a lower third, a swipe) and shows you a preview. A plain
-"make a Short" stays on your usual red captions.
-
-If none of the saved looks fit the footage, Codex may save a new style on its own and tell you the name. Say keep it,
-tweak it, or delete it. Your existing styles are not overwritten.
-
-A reel you like still works. Save the video, drag it in, and say **"make a style from this."** If you also want the
-graphics to go further, say so: Codex copies the reel's look and builds the motion graphics into that same style.
-
 ## Graphics
-"What graphics do I have?" lists the kit's own (logo pop, picture card, text card) plus the premium-motion pieces.
+The default look already builds real-looking graphics of the things you mention (a Google results page, a ChatGPT window, and so on).
 There are also about 200 ready-made animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one
 ("show this as a text conversation", "a list of the 3 steps") and Codex finds and places it. Anything that doesn't
-exist yet, Codex builds into the style for this video.
+exist yet, Codex builds for this video.
 
 ## If something goes wrong
 - Codex tells you in plain words what failed. A failed video never lands in `done/`.

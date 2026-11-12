@@ -1,5 +1,5 @@
 {
-  "_about": "Matthew's long-form (16:9 YouTube). Same look as matthew, sized for a landscape frame: one line of up to 4 words in the lower third, crimson keywords as spoken, a punch-in about every 4 s, his voice only at -14 LUFS.",
+  "_about": "16:9 YouTube default: real-world UI replicas in a clean layout, his voice at -14 LUFS. Caption preferences layer on top.",
   "font": "Montserrat ExtraBold",
   "font_file": "Montserrat-ExtraBold.ttf",
   "font_size_frac": 0.072,
@@ -37,7 +37,7 @@
     "LRA": 11
   },
   "logos": {
-    "enabled": true,
+    "enabled": false,
     "youtube": "assets/logos/youtube_icon_red.png",
     "instagram": "assets/logos/Instagram_Glyph_Gradient.png"
   },

@@ -49,7 +49,16 @@ def db(x):
 # Spoken forms Whisper writes differently from the script. Without these, "$1,000" vs "a thousand dollars"
 # and Claude vs "cloud" raised false missing-word FAILs on the Claude Startups episode (Oct 2026).
 ALIASES = {'cloud': 'claude', 'clawed': 'claude', 'clod': 'claude', 'claud': 'claude', 'clawd': 'claude',
-           'quad': 'claude', 'thropic': 'anthropic', 'anthropics': 'anthropic', 'operator0': 'operatorzero'}
+           'quad': 'claude', 'thropic': 'anthropic', 'anthropics': 'anthropic', 'operator0': 'operatorzero',
+           'gbt': 'gpt', 'gemeni': 'gemini', 'geminy': 'gemini'}
+# Two-token Whisper confusions. "gym" alone stays "gym".
+PAIR_ALIASES = {
+    ('gbt', 'gym'): ('gpt', 'gemini'),
+    ('gpt', 'gym'): ('gpt', 'gemini'),
+    ('chat', 'gbt'): ('chat', 'gpt'),
+    ('chad', 'gpt'): ('chat', 'gpt'),
+    ('chad', 'gbt'): ('chat', 'gpt'),
+}
 NUM = {w: i for i, w in enumerate('zero one two three four five six seven eight nine ten eleven twelve thirteen '
                                   'fourteen fifteen sixteen seventeen eighteen nineteen'.split())}
 NUM.update({w: 10 * i for i, w in enumerate('twenty thirty forty fifty sixty seventy eighty ninety'.split(), 2)})
@@ -89,6 +98,13 @@ def canon(words):
         if t in ('11', 'eleven') and k + 1 < len(raw) and raw[k + 1][0] == 'labs':   # "11 labs" = ElevenLabs
             toks.append('elevenlabs')
             groups.append(sorted({i, raw[k + 1][1]}))
+            k += 2
+            continue
+        if k + 1 < len(raw) and (t, raw[k + 1][0]) in PAIR_ALIASES:   # "GBT gym" = "GPT Gemini"
+            a, b = PAIR_ALIASES[(t, raw[k + 1][0])]
+            toks.extend((a, b))
+            groups.append([i])
+            groups.append([raw[k + 1][1]])
             k += 2
             continue
         if m:
@@ -913,7 +929,28 @@ def check_speech(video, info, a, rep, out):
 
 # ----------------------------------------------------------------------------- report
 
+ASR_OVERRIDE_CHECKS = ('captions:missing', 'sound:missing-words')
+
+
+def apply_asr_override(rep, reason):
+    '''Downgrade known ASR script/caption mismatches to WARN when a reviewer accepted them.'''
+    if not (reason or "").strip():
+        return 0
+    reason = " ".join(str(reason).split())
+    n = 0
+    for i in rep.items:
+        if i['sev'] == FAIL and i['check'] in ASR_OVERRIDE_CHECKS:
+            i['sev'] = WARN
+            i['msg'] = i['msg'] + f' (accepted ASR mismatch: {reason})'
+            n += 1
+    if n:
+        rep.add(INFO, 'sound:asr-override', f'Accepted {n} ASR caption/script mismatch(es): {reason}')
+    return n
+
+
 def write_report(video, info, rep, out, args):
+    if getattr(args, 'accept_asr_mismatch', None):
+        apply_asr_override(rep, args.accept_asr_mismatch)
     order = {FAIL: 0, WARN: 1, INFO: 2}
     items = sorted(rep.items, key=lambda i: (order[i['sev']], i['start'] if i['start'] is not None else -1))
     verdict = 'FAIL' if rep.count(FAIL) else 'PASS'
@@ -963,6 +1000,8 @@ def edl_inputs(a):
         a.end_text = q['end_text']
     if not a.expect_text and q.get('expect_text'):
         a.expect_text = list(q['expect_text'])
+    if not getattr(a, 'accept_asr_mismatch', None) and q.get('accept_asr_mismatch'):
+        a.accept_asr_mismatch = str(q['accept_asr_mismatch'])
 
 
 def edl_record(a, video, rep, out, verdict):
@@ -993,6 +1032,8 @@ def main():
     ap.add_argument('--end-text', help='text the end card must show in full, e.g. operatorzero.ai')
     ap.add_argument('--expect-text', action='append', default=[], help='text that must appear fully on screen at least once (repeatable)')
     ap.add_argument('--edl', help='edl.json edit plan: reads captions/render/qa for the options above, writes the verdict to its qa section')
+    ap.add_argument('--accept-asr-mismatch', default=None,
+                    help='one-line reason: downgrade captions:missing and sound:missing-words FAILs to WARN after a visual check')
     ap.add_argument('--target-lufs', type=float, help='default -14 (or edl.json render.loudness.target_lufs)')
     ap.add_argument('--fps', type=float, help='frames per second to inspect (default 3 for vertical ≤90 s, 2 for ≤3 min, else 1)')
     ap.add_argument('--model', help='faster-whisper model (default small.en; base misses restarts)')

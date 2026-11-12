@@ -8,8 +8,8 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit update                                   pull the newest kit, then bring HyperFrames and the Python packages up to date
   kit deps status | check | rollback           the outside libraries: they update on their own once a day, tested first (engine/deps.py)
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
-  kit draft <clip> [--style matthew] [--long]  make a job folder with a first edit plan (edl.json) + the transcript to review
-                                               (--long: a 16:9 long-form edit, style matthew-long unless --style says otherwise)
+  kit draft <clip> [--style <name>] [--long]   make a job folder with a first edit plan (edl.json) + the transcript to review
+                                               (default look: real-world UI replicas; --long is a 16:9 YouTube edit)
   kit preview <job> [<job> ...] [--rebuild]    open each job in its own Studio tab (live; nothing rendered until kit render)
   kit preview --stop                           close the Studio servers
   kit render <job>                             render the job as it stands in Studio, run QA; a PASS goes to done/
@@ -240,7 +240,7 @@ def cmd_doctor(a) -> int:
     line((ENGINE / "vendor/gsap.min.js").exists(), "animation library (engine/vendor/gsap.min.js)", "re-clone the kit")
     line((KIT / ".codex/rules/kit.rules").exists(), "Codex rule that lets previews and renders start Chrome (.codex/rules/kit.rules)", "re-clone the kit")
     line((KIT / "assets/fonts/Montserrat-ExtraBold.ttf").exists(), "caption font", "re-clone the kit")
-    line((STYLES / "matthew/style.json").exists(), "default style 'matthew'", "re-clone the kit")
+    line((STYLES / "premium-motion/style.json").exists(), "default Short look", "re-clone the kit")
     gh = shutil.which("gh", path=e["PATH"]) or shutil.which("gh", path="/opt/homebrew/bin:/usr/local/bin")
     gha = gh and subprocess.run([gh, "auth", "status"], capture_output=True, text=True).returncode == 0
     line(bool(gha), "GitHub login (kit updates, and problem reports to Mitchell)", "brew install gh, then gh auth login" if not gh else "gh auth login")
@@ -435,7 +435,7 @@ def cmd_draft(a) -> int:
     clip = Path(a.clip).expanduser().resolve()
     if not clip.is_file():
         die(f"clip not found: {clip}")
-    style = a.style or ("matthew-long" if a.long else "matthew")
+    style = a.style or ("matthew-long" if a.long else "premium-motion")
     if not (style_dir(style) / "style.json").exists():
         die(f"style {style!r} not found. Styles: {', '.join(list_styles())}")
     wp = words_path(clip)
@@ -524,9 +524,13 @@ def _write_short_beside(name, edl, words, clip: Path) -> str:
     words_src = WORK / name / "inputs" / "words.json"
     if words_src.is_file():
         shutil.copy2(words_src, job / "inputs" / "words.json")
-    style = edl.get("style_name") or "matthew"
-    if style.endswith("-long") and (style_dir(style[: -len("-long")]) / "style.json").exists():
-        style = style[: -len("-long")]
+    style = edl.get("style_name") or "premium-motion"
+    if style.endswith("-long"):
+        short = style[: -len("-long")]
+        if short == "matthew" or not (style_dir(short) / "style.json").exists():
+            style = "premium-motion"
+        else:
+            style = short
     import library
     short = {
         "name": short_name,
@@ -591,7 +595,7 @@ def place_logos(edl: dict) -> None:
     wide = int(o.get("w", 1080)) > int(o.get("h", 1920))
     cx, y = (int(o.get("w", 1920)) / 2, int(o.get("h", 1080)) * 0.45) if wide else (540, 1180)   # px of a 1080-short-side frame
     xs = [cx] if len(hits) == 1 else [cx - 210, cx + 210]
-    logos = json.load(open(style_dir(edl.get("style_name") or "matthew") / "style.json")).get("logos") or {}
+    logos = json.load(open(style_dir(edl.get("style_name") or "premium-motion") / "style.json")).get("logos") or {}
     overlays, ats = [], []
     for h, x in zip(hits, xs):
         at = output_time(edl, h["source_t"])
@@ -714,6 +718,8 @@ def qa_extra_args(job: Path | None) -> list[str]:
 def run_qa(mp4: Path, job: Path | None) -> str:
     out = (job / "out" / "qa") if job else mp4.with_suffix("").parent / f"{mp4.stem}_qa"
     cmd = [py(), str(ENGINE / "qa.py"), str(mp4), "--out", str(out), "--model", "small.en", *qa_extra_args(job)]
+    if job and (job / "edl.json").is_file():
+        cmd += ["--edl", str(job / "edl.json")]
     subprocess.call(cmd, env=env())
     try:
         return json.load(open(out / "qa.json")).get("verdict", "FAIL")
@@ -899,7 +905,7 @@ def cmd_style(a) -> int:
     if a.action == "sheet":
         return contact_sheet(a.name)
     if not a.name:
-        die("name a style, e.g. kit style show matthew")
+        die("name a style")
     if a.action == "import":
         return style_import(Path(a.name).expanduser())
     folder = style_dir(a.name)
@@ -940,7 +946,7 @@ def cmd_style(a) -> int:
     if a.action == "preview":
         return style_preview(a.name, a.clip)
     if a.action == "new":
-        base = a.base or "matthew"
+        base = a.base or "premium-motion"
         if path.exists():
             die(f"style {a.name!r} already exists")
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", a.name):
@@ -1016,7 +1022,7 @@ def style_undo(name: str | None) -> int:
         last = json.loads(LAST_STYLE.read_text())
     except (OSError, ValueError):
         pass
-    name = name or last.get("style") or "matthew"
+    name = name or last.get("style") or "premium-motion"
     vdir = USER_STYLES / name / "versions"
     vs = sorted(p for p in vdir.iterdir() if p.is_dir() and not p.name.startswith(".")) if vdir.is_dir() else []
     if not vs:
@@ -1165,7 +1171,7 @@ def sample_job(tag: str, clip: str | None, seconds: float = 3.0, extra: dict | N
             break
         take = min(c["out"] - c["in"], seconds - acc)
         keep.append({"in": c["in"], "out": round(c["in"] + take, 3)}); acc += take
-    edl = {"name": tag, "style_name": "matthew", "source": f"inputs/{src.name}", "words": "inputs/words.json", "cuts": keep,
+    edl = {"name": tag, "style_name": "premium-motion", "source": f"inputs/{src.name}", "words": "inputs/words.json", "cuts": keep,
            "keywords": draft_keywords(words), "output": {"w": 1080, "h": 1920, "fps": 30}, "overlays": [], "blocks": []}
     edl.update(extra or {})
     json.dump(edl, open(job / "edl.json", "w"), indent=2)
@@ -1228,7 +1234,7 @@ def cmd_blocks(a) -> int:
     if not a.words:
         die("name a block, e.g. kit blocks test ai-chat-reveal")
     name = a.words[0]
-    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5}], "style_name": a.style or "matthew"}
+    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5}], "style_name": a.style or "premium-motion"}
     still = try_job(sample_job(f"block-{name}", a.clip, 4.0, extra), [1.0, 2.0, 3.2])
     print(f"OK {name}: still {still}\nplace it with the plan's \"blocks\" (skills/graphics)")
     return 0
