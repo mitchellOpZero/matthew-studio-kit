@@ -14,7 +14,7 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
 - `fonts/`: fonts this style brings
 - `versions/`: full copies from before each save
 
-`matthew` is the default and was built from what Matthew asked for; `matthew-long` is the same look for 16:9 long-form. `bin/kit style list` shows every style. Styles he made in the old Matthew Edit Kit come over with `bin/kit style import ~/ColdApproach/matthew-edit-kit` (it says if anything has to be rebuilt).
+`default` is the look every Short starts from, and `matthew-long` is that same look for 16:9 long-form. `matthew` is his old red style: use it only if he asks for it by name. His red captions belong as a saved preference on the default instead. `bin/kit style list` shows every style. Styles he made in the old Matthew Edit Kit come over with `bin/kit style import ~/ColdApproach/matthew-edit-kit` (it says if anything has to be rebuilt).
 
 ## Steps for any change
 1. Understand what he wants. If it's vague ("make it pop more"), make a sensible choice and show him. Don't quiz him.

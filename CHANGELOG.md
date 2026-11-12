@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.3
+
+- Removed the old canned graphics (title card, count-up stat, sticker callout, lower third, word swipe) and the old caption animation from the default look.
+- `matthew` is labeled as the old red style, used only when he asks for it by name.
+
 ## 2.3.2
 
 - The default look's folder is now called `default`. Old edit plans that say `premium-motion` still open it.

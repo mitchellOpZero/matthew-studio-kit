@@ -27,12 +27,12 @@ class DefaultStyleTests(unittest.TestCase):
         self.assertEqual(long["shape"], "16:9")
 
     def test_blocks_are_seekable_compositions(self):
-        # Old pack templates may still be on disk; they must not be the default.
+        # The old canned pack is gone from the default look.
         md = (STYLE / "STYLE.md").read_text()
         self.assertIn("replica", md.lower())
-        self.assertIn("do not fire the old template stack", md.lower())
-        for name in BLOCKS:
-            self.assertTrue((STYLE / "templates" / name / f"{name}.html").is_file())
+        self.assertIn("never use canned", md.lower())
+        for name in BLOCKS + ("kinetic",):
+            self.assertFalse((STYLE / "templates" / name).exists())
         capsule = STYLE / "templates" / "capsule"
         self.assertTrue((capsule / "captions.js").is_file())
         self.assertTrue((capsule / "captions.css").is_file())
@@ -66,8 +66,8 @@ class DefaultStyleTests(unittest.TestCase):
         self.assertNotIn("go crazy", agents.lower())
         self.assertNotIn("premium-motion", agents.lower())
         self.assertIn("2.3.1", (ROOT / "CHANGELOG.md").read_text())
-        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.2")
-        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.2")
+        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.3")
+        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.3")
 
 
 

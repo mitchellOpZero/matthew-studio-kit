@@ -1,5 +1,0 @@
-{
-  "name": "stat-count",
-  "description": "A count-up number with a drawing gold ring, a suffix, and a tracked label.",
-  "plan": "blocks: {\"name\": \"stat-count\", \"at\": s, \"dur\": s, \"vars\": {\"value\": \"3\", \"suffix\": \"x\", \"label\": \"MORE DATES\"}}"
-}

@@ -25,7 +25,7 @@ This is the default for a creative ask, not the only mode the kit has. A referen
 
 4. **Captions.** Automatic, capsule template, on the seam. Mixed case, a few words, never over his face and never over the graphic panel. Do not add a text card that repeats the caption.
 
-5. **What not to place by default.** Do not fire the old template stack: `kinetic-label`, `stat-count`, `callout`, `lower-third`, `idea-swipe`. Those files may still be in the style folder; they are not the default. Use a stock kit graphic or a library block only if it genuinely is the closest match to the real thing and it passes the quality gate. Never use a full-frame sting, swipe, or any graphic that covers his face.
+5. **What not to place by default.** Never use canned title cards, count-up stats, sticker callouts, lower thirds, or word swipes. Use a stock kit graphic or a library block only if it genuinely is the closest match to the real thing and it passes the quality gate. Never use a full-frame sting, swipe, or any graphic that covers his face.
 
 6. **Sound.** His voice only, at -14 LUFS. No music, no stacked sound effects, unless he asks.
 
