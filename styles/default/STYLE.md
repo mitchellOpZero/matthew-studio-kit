@@ -2,7 +2,7 @@
 
 The kit's default look for every Short. Saved preferences (for example his red captions) only refine it; they never swap in a canned pack.
 
-Vertical (9:16) with a fixed frame: a reserved graphic panel in the **top half**, his talking head in the **bottom half**, and captions in a dark capsule sitting on the **seam** between them. The kit applies this when `frame_layout` is `split` and the video has at least one graphic (do not fight it in `index.html` unless a single graphic needs a tweak). His face stays in the lower half and is never covered. A Short with no graphics gets his face full frame instead of an empty top half, with captions at `full_center_y_frac` (0.7).
+Vertical (9:16) with a fixed frame: a reserved graphic panel in the **top half**, his talking head in the **bottom half**, and captions in a dark capsule sitting on the **seam** between them. The kit applies this while a graphic is on screen (any block forces it, whatever the style or plan says; do not fight it in `index.html`). His face stays in the lower half, framed forehead to chin, and is never covered; a block placed over it is moved into the panel. The rest of the time (the hook, between graphics) his face is full frame instead of an empty top half, with captions at `full_center_y_frac` (0.7).
 
 The motion graphics are not a template pack. They are high-fidelity replicas of real things he mentions, drawn as HyperFrames HTML/GSAP compositions, and they should look like a real screen — not a sticker, card, or typographic sting.
 
@@ -17,7 +17,7 @@ The motion graphics are not a template pack. They are high-fidelity replicas of 
    - Animate it the way the real UI moves, tastefully: typing into the search bar, results loading, a highlight or zoom on the key line. No bounce-in stickers, no diagonal word wipes, no letter-stagger title cards.
    - Show only what the real UI would show. No fake find-in-page widgets or invented chrome. Never bake meta labels such as "reconstruction", "not specified in narration", or "illustrative" into the graphic.
    - Every graphic holds at least about 1.5s. Charts use plausible, believable data, not a perfectly regular made-up shape.
-   - Design the composition at 1080×960 (the top panel). Leave `box` off in the plan so it fills the reserved top half like a screen.
+   - Design the composition at 1080×874 (the top graphic panel, above the caption seam). Leave `box` off in the plan so it fills the reserved top half like a screen.
 
 This is the default for a creative ask, not the only mode the kit has. A reference reel still wins for the look; a new style is still allowed; if he asks for a different direction, follow that.
 

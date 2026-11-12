@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.6
+
+- Graphics on a Short always go in the top panel, never on his face. Any block switches the frame to split while it shows, even in the `matthew` style or a plan that says full frame. A block placed over his face, across the caption seam, or too small to read is moved into the panel. Between graphics (and in the hook) his face is full frame, so there is no empty dark top half.
+- His face is framed in the bottom half from where his face actually is, forehead to chin, instead of a fixed spot that cut his chin off.
+- Sharp graphics: library blocks are laid out at the panel's size instead of shrunk (tiny text) or enlarged (soft), blur filters are stripped, and `thread-message-stack` now looks like a real iMessage thread instead of see-through bubbles on a blurred backdrop.
+- Graphics show his words: the kit checks every graphic's text against what he says around that moment and stops the preview on invented messages, names, or a library block's sample text. Put his words in the block's `"data"`.
+- Text-only canned pieces (accent underline, kinetic words, lower thirds, count-ups ...) are refused unless he asked for that exact piece.
+- Errors block preview and render: lint/check output that can't be read now counts as a failure, a Studio tab already showing a broken project is closed, and the kit's own layout check catches hand edits that put a block on his face. `bin/kit check <job>` shows the errors.
+
 ## 2.3.5
 
 - HyperFrames moves from 0.8.214 to 0.9.39 (the current release). A leftover 0.8 copy on his Mac is ignored, so updating the kit always gets the new one.

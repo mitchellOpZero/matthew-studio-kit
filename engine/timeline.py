@@ -7,6 +7,7 @@ import hashlib, json, math, os, subprocess
 
 import quick_edit as qe
 import audio_clean
+import graphic_guard as gg
 
 KIT = qe.KIT
 CONFORM = os.path.join(KIT, ".cache", "conform")
@@ -227,30 +228,55 @@ def build(edl_path, full=True):
     gfx = [{"start": fc(float(g["at"])), "frames": f(float(g.get("dur", 1.2))), "text": g["text"]} for g in edl.get("graphics") or []]
     # HyperFrames library blocks (hyperframes catalog): {name, at, dur, vars, box: [x, y, w, h] in output px}
     blocks = [{"name": b["name"], "start": fc(float(b["at"])), "frames": f(float(b.get("dur", 2.0))),
-               "vars": b.get("vars") or {}, "box": b.get("box")} for b in edl.get("blocks") or []]
+               "vars": b.get("vars") or {}, "box": b.get("box"), "data": b.get("data"), "fit": b.get("fit") or "native",
+               "canned_ok": bool(b.get("canned_ok")), "invented_ok": bool(b.get("invented_ok"))} for b in edl.get("blocks") or []]
 
     dlg = dialogue(edl, edl_dir, src, pieces, st, total)
-    st, layout_note = frame_layout(edl, st, blocks, ovs, gfx)
+    st, layout_note = frame_layout(edl, st, blocks, ovs, gfx, W, H)
+    guard_notes = []
+    if str(st.get("frame_layout") or "").lower() in SPLIT:
+        try:
+            guard_notes = gg.place_blocks(blocks, W, H) + gg.place_overlays(ovs, W, H)
+        except ValueError as e:
+            qe.die(str(e))
+        st = dict(st); st["face_focus_y"] = face_focus(cfr, cam, fps)
+    elif blocks and gg.is_vertical(W, H):
+        qe.die("blocks on a Short need the split frame (graphic panel on top, his face below)")
 
     style = {k: v for k, v in st.items() if not k.startswith("_")}
     style["font_css_scale"] = font_scale(st)
-    style["center_y_frac"], place = caption_y(edl, st, cfr, cam, caps, fps, W, H)
+    if str(st.get("frame_layout") or "").lower() in SPLIT:
+        # split only while a graphic is on screen (captions on the seam then); his face full frame the rest of the time,
+        # captions at the full-frame height there
+        full_st = dict(st, center_y_frac=float(st.get("full_center_y_frac", 0.7)))
+        style["center_y_frac"], place = caption_y(edl, full_st, cfr, cam, caps, fps, W, H)
+        place = "split while a graphic shows, captions on the seam; his face full frame otherwise, " + place
+    else:
+        style["center_y_frac"], place = caption_y(edl, st, cfr, cam, caps, fps, W, H)
     font_file = qe._font_path(st); FONT = media_key("font", font_file)
     media[FONT] = font_file
     tl = {"fps": fps, "width": W, "height": H, "frames": frames, "src_w": iw, "src_h": ih,
           "audio_processing": {"pipeline": audio_clean.VERSION, "cleanup": (edl.get("audio") or {}).get("cleanup", True)},
           "style_name": edl.get("style_name") or "", "style": style, "font": FONT,
           "dialogue": dlg, "camera": cam, "captions": caps, "overlays": ovs, "broll": broll, "sfx": sfx, "graphics": gfx, "blocks": blocks,
-          "caption_place": place + layout_note}
+          "caption_place": place + layout_note + "".join("; " + n for n in guard_notes),
+          "words": [{"w": w["w"], "s": round(w["s"], 3), "e": round(w["e"], 3)} for w in owords]}
     return tl, media
 
 
 SPLIT = {"split", "panel", "top-panel"}
 
 
-def frame_layout(edl, st, blocks, overlays, graphics):
+def frame_layout(edl, st, blocks, overlays, graphics, W=None, H=None):
     """The split frame (graphic panel on top, his face below) only when the video has graphics to put in the panel.
-    A video with none gets his face full frame instead of an empty top half. The plan's own frame_layout always wins."""
+    A video with none gets his face full frame instead of an empty top half. The plan's own frame_layout wins, except
+    that a vertical Short with any library block is always split: a block never goes over his face, whatever the style
+    or plan says (that full frame put a message thread on his chest)."""
+    if blocks and W and H and gg.is_vertical(W, H):
+        if str(st.get("frame_layout") or "").strip().lower() in SPLIT:
+            return st, ""
+        st = dict(st); st["frame_layout"] = "split"; st.setdefault("panel_color", "#121417")
+        return st, "; it has graphics, so the frame is split (graphic panel on top, his face below, captions on the seam)"
     if str(st.get("frame_layout") or "").strip().lower() not in SPLIT or "frame_layout" in (edl.get("style") or {}):
         return st, ""
     if blocks or overlays or graphics:
@@ -279,6 +305,30 @@ def face_bottoms(cfr, cam, fps):
                             "-vf", f"crop={int(w)}:{int(h)}:{int(x)}:{int(y)},scale=540:960", jpg], check=True)
             _, faces = qa.vision_analyze(jpg, 0.05, False)
             out.append(max((f["b"] for f in faces if f["h"] >= 0.06), default=None))
+    os.makedirs(os.path.dirname(cache), exist_ok=True); json.dump(out, open(cache, "w"))
+    return out
+
+
+def face_focus(cfr, cam, fps):
+    """Where his face sits in the uncropped clip (0-1 of the height, the middle of the face box over a few pieces), so
+    the split frame's bottom half can be framed on his face instead of a fixed spot. None when no face is found."""
+    if not cam: return None
+    key = hashlib.sha1(json.dumps(["focus", os.path.realpath(cfr), os.path.getsize(cfr), [p["src_frame"] for p in cam]]).encode()).hexdigest()[:16]
+    cache = os.path.join(qe.KIT, ".cache", "faces", key + ".json")
+    if os.path.exists(cache): return json.load(open(cache))
+    import qa, tempfile
+    tops, bots = [], []
+    with tempfile.TemporaryDirectory() as d:
+        for i, p in enumerate(cam[:6]):
+            jpg = os.path.join(d, f"{i}.jpg"); t = (p["src_frame"] + p["frames"] / 2) / fps
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", cfr, "-frames:v", "1", "-vf", "scale=540:-2", jpg], check=True)
+            faces = [f for f in qa.vision_analyze(jpg, 0.05, False)[1] if f["h"] >= 0.05]
+            if faces:
+                big = max(faces, key=lambda f: f["h"]); tops.append(big["t"]); bots.append(big["b"])
+    out = None
+    if tops:
+        tops.sort(); bots.sort(); t, b = tops[len(tops) // 2], bots[len(bots) // 2]
+        out = {"top": round(t, 4), "bottom": round(b, 4)}
     os.makedirs(os.path.dirname(cache), exist_ok=True); json.dump(out, open(cache, "w"))
     return out
 

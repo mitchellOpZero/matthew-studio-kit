@@ -1,0 +1,21 @@
+/* thread-message-stack as a real iMessage thread (light mode): a white screen, flat solid bubbles, iOS colours.
+   No blurred bokeh backdrop, no dark scrim, no see-through bubbles, no faded top edge. */
+#tms-root {
+  background: #FFFFFF !important;
+  color: #000000;
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif !important;
+  --tms-out-fill: #0B84FE;
+  --tms-out-ink: #FFFFFF;
+  --tms-in-fill: #E9E9EB;
+  --tms-in-ink: #000000;
+}
+#tms-roll, #tms-scrim { display: none !important; }
+#tms-view { -webkit-mask-image: none !important; mask-image: none !important; }
+.tms-row { left: 5% !important; right: 5% !important; bottom: 7% !important; }
+.tms-sender { color: #8E8E93 !important; text-shadow: none !important; font-weight: 500 !important; font-size: 30px !important; }
+.tms-bubble {
+  font-size: 54px !important; font-weight: 400 !important; letter-spacing: -0.01em !important; line-height: 1.25 !important;
+  padding: 22px 38px !important; border-radius: 44px !important; max-width: 76% !important;
+}
+.tms-row[data-side="incoming"] .tms-bubble { background: var(--tms-in-fill) !important; box-shadow: none !important; }
+.tms-row[data-side="outgoing"] .tms-bubble { background: var(--tms-out-fill) !important; box-shadow: none !important; }
