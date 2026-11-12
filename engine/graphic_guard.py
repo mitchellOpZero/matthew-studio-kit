@@ -36,7 +36,8 @@ CANNED = re.compile(r"(underline|kinetic|lower[-_]?third|title[-_]?card|stat[-_]
 # a message graphic: a phone conversation or notification from someone (her texts), not an AI chat or an app screen
 MESSAGE = re.compile(r"(i-?message|thread[-_]?message|message[-_]?(stack|thread|bubble)|text[-_]?(message|thread)|chat[-_]?message|"
                      r"(^|[-_])sms($|[-_])|(^|[-_])dms?($|[-_])|direct[-_]?message|notification|whatsapp|messenger|snapchat|"
-                     r"(^|[-_])texts?($|[-_])|lock[-_]?screen)", re.I)
+                     r"(^|[-_])texts?($|[-_])|lock[-_]?screen|"
+                     r"(^|[-_])(chats?|messages?|threads?|convos?|conversations?|inbox)($|[-_])|hinge|tinder|bumble)", re.I)
 NOT_MESSAGE = re.compile(r"(^|[-_])(ai|gpt|chatgpt|claude|gemini|assistant|bot)($|[-_])", re.I)
 
 
@@ -68,8 +69,8 @@ def canned(name):
 
 
 def is_message(block):
-    """An iMessage thread, a DM, a notification: by the plan's "kind": "messages", the block's name, or data shaped like
-    a conversation ({"messages": [{"side": ..., "text": ...}]})."""
+    """An iMessage thread, a DM, a notification, a dating-app screen: by the plan's "kind": "messages", the block's name
+    (chat, messages, thread, dm, notification, hinge ...), or data / vars shaped like a conversation."""
     if str(block.get("kind") or "").lower() in {"messages", "message", "dm", "notification", "imessage"}:
         return True
     name = block.get("name") or ""
@@ -78,7 +79,10 @@ def is_message(block):
     if MESSAGE.search(name):
         return True
     d = block.get("data")
-    return isinstance(d, dict) and isinstance(d.get("messages"), list) and any(isinstance(m, dict) and "side" in m for m in d["messages"])
+    if isinstance(d, dict) and isinstance(d.get("messages"), list) and any(isinstance(m, dict) and "side" in m for m in d["messages"]):
+        return True
+    v = block.get("vars")   # a graphic built for this video that takes its thread as a variable ("messages": "sent:...|recv:...")
+    return isinstance(v, dict) and bool(v.get("messages"))
 
 
 def graphic_layout(edl, st):
@@ -353,6 +357,17 @@ def copied_lines(texts, words, need=0.7):
     return bad
 
 
+META_LABEL = re.compile(r"\b(fictional|fictitious|illustrative|hypothetical|placeholder|lorem ipsum|for illustration|not (a )?real|"
+                        r"mock[- ]?up|(sample|example|demo|fake|made[- ]up|test) (chat|dm|dms|message|messages|text|texts|thread|"
+                        r"conversation|convo|profile|notification|post|account|user|contact))\b", re.I)
+
+
+def meta_labels(texts):
+    """On-screen text that says the graphic is made up ("Fictional DM", "Illustrative example", "Sample chat"). A graphic
+    passes for the real thing: a real-looking name and the app's own header, never a label about itself."""
+    return [t for t in texts if META_LABEL.search(str(t))]
+
+
 def check_text(blocks, graphics, words, fps):
     """Errors for on-screen text. A normal graphic's text (its data and vars, which include a library block's own sample
     text when the plan didn't replace it, and words typed into its HTML) and each text card must be words he says near
@@ -363,6 +378,9 @@ def check_text(blocks, graphics, words, fps):
             continue
         t0 = b["start"] / fps; t1 = (b["start"] + b["frames"]) / fps
         texts = list(b.get("texts") or []) + [t for t in (b.get("html_texts") or []) if t not in (b.get("texts") or [])]
+        for text in meta_labels(texts):
+            errs.append(f"graphic {b['name']} at {t0:.1f}s labels itself: \"{text}\". A graphic never says it is fictional, an "
+                        "example or a sample; give it a real-looking name and the app's own header")
         if b.get("message"):
             if b.get("needs_data"):
                 errs.append(f"message graphic {b['name']} at {t0:.1f}s still shows its saved sample texts; write fresh made-up "
@@ -377,6 +395,8 @@ def check_text(blocks, graphics, words, fps):
             errs.append(f"block {b['name']} at {t0:.1f}s shows \"{text}\", which he doesn't say around then")
     for g in graphics:
         t0 = g["start"] / fps; t1 = (g["start"] + g["frames"]) / fps
+        for text in meta_labels([g["text"]]):
+            errs.append(f"text card at {t0:.1f}s labels itself: \"{text}\". Never say a graphic is fictional, an example or a sample")
         for text in unsupported_text([g["text"]], words, t0, t1):
             errs.append(f"text card at {t0:.1f}s shows \"{text}\", which he doesn't say around then")
     return errs

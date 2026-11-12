@@ -2,6 +2,11 @@
 
 ## 2.3.7
 
+- Full face can be saved as his preference: `"graphic_layout": "full"` in `my-styles/preferences.json` applies to every Short.
+- New shared caption design `red-active-pill` (the look of Matthew's older reels: small white words, a rounded red pill on the word he is saying). A preference can name a font kept in `my-styles/fonts/`.
+- A graphic never labels itself as made up ("Fictional DM", "Illustrative example", "Sample chat"): the preview stops on one.
+- App screens are copied from a real picture: before building an iMessage thread, an Instagram DM, a Hinge profile or any real app screen, find a current real screenshot online, keep it in `.work/<job>/refs/`, and match it exactly.
+- More graphics count as message graphics by name (`chat`, `messages`, `thread`, `hinge`, `tinder`, `bumble`) or by a `messages` value in their vars, so a replica built for one video is recognised.
 - Message graphics (iMessage threads, DMs, notifications) show made-up, realistic texts from her, like real iMessages, never his script. They skip the word check (no "mark as allowed" flag), and the preview stops if a text copies a line he says, or if a library or saved message graphic still shows the texts it came with.
 - Every other graphic is still his words only, and now that includes words typed straight into a graphic's HTML, not just its data. App chrome (Search, Delivered, times) is fine; `data-ui` marks other chrome.
 - No forced half screen. While a graphic shows, the top panel is only as tall as the graphic needs (a short thread gets a short panel and more of his face), with his face right below it. New choice when he asks: `"graphic_layout": "full"` keeps his face full frame and graphics pop in around him, or cut away full screen when there's no room. A full-frame style is no longer forced into a panel. Graphics still never cover his face, and tiny or blurry graphics are still refused.

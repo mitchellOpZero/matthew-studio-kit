@@ -133,9 +133,10 @@ def fit_lines(chunk, st, fs, W):
 
 
 def _font_path(st):
-    """A style may ship its own font (styles/<name>/fonts/); else the kit's assets/fonts/."""
+    """A style may ship its own font (styles/<name>/fonts/); else his own fonts (my-styles/fonts/, for a saved
+    preference); else the kit's assets/fonts/."""
     f = st.get("font_file", "Montserrat-ExtraBold.ttf")
-    for d in [os.path.join(st.get("_style_dir", ""), "fonts"), FONTS]:
+    for d in [os.path.join(st.get("_style_dir", ""), "fonts"), os.path.join(KIT, "my-styles", "fonts"), FONTS]:
         if d and os.path.isfile(os.path.join(d, f)): return os.path.join(d, f)
     return os.path.join(FONTS, f)
 
@@ -260,6 +261,7 @@ PREF_KEYS = {
     "font", "font_file", "font_size_frac", "color", "highlight_color", "stroke_color", "stroke", "shadow",
     "center_y_frac", "uppercase", "one_line", "max_words", "max_chars", "min_chunk_s", "gap_break_s",
     "kw_sync_pop", "kw_pop_pct", "keyword_scale", "pop_scale", "pop_ms", "caption_template",
+    "graphic_layout",   # "full": he always wants his face full frame, graphics as overlays or cutaways (never a panel)
 }
 
 

@@ -34,6 +34,22 @@ class MessageGraphicTests(unittest.TestCase):
         self.assertTrue(gg.is_message({"name": "my-phone", "kind": "messages"}))
         self.assertTrue(gg.is_message({"name": "my-phone", "data": {"messages": [{"side": "incoming", "text": "hey"}]}}))
 
+    def test_chat_and_dating_app_names_and_thread_vars_count(self):
+        for name in ("chat-thread", "imessage-chat", "her-messages", "hinge-chat", "tinder-match-screen", "fresh-chase-thread"):
+            self.assertTrue(gg.is_message({"name": name}), name)
+        self.assertTrue(gg.is_message({"name": "phone-card", "vars": {"contact": "Megan", "messages": "sent:hey|recv:busy"}}))
+        for name in ("ai-chat-reveal", "chatgpt-chat", "notes-reveal", "threadbare-title"):
+            self.assertFalse(gg.is_message({"name": name}), name)
+
+    def test_a_graphic_never_labels_itself_as_made_up(self):
+        for label in ("Fictional DM", "Illustrative example", "Sample chat", "example message", "Hypothetical"):
+            errs = gg.check_text([blk(message=True, texts=[label, "hey, free this week?"])], [], WORDS, 30)
+            self.assertTrue(any("labels itself" in e for e in errs), label)
+        ok = gg.check_text([blk(message=True, texts=["Megan", "hey, free this week?", "busy", "for example lol"])], [], WORDS, 30)
+        self.assertEqual(ok, [])
+        errs = gg.check_text([blk("notes-card", texts=["Illustrative example"])], [], WORDS, 30)
+        self.assertTrue(any("labels itself" in e for e in errs))
+
     def test_made_up_texts_pass_without_any_allow_flag(self):
         b = blk(message=True, texts=["omg are you still up??", "wait who is this lol", "ok you're kinda funny"])
         self.assertEqual(gg.check_text([b], [], WORDS, 30), [])
@@ -159,6 +175,32 @@ class NoAutoSaveTests(unittest.TestCase):
             self.assertIn(".work/<job>/graphics/", txt, f)
             self.assertNotIn("my-styles/<style>/templates/<name>/<name>.html", txt, f)
             self.assertNotIn("my-styles/default/templates/<name>/", txt, f)
+
+
+class ReelCaptionAndPreferenceTests(unittest.TestCase):
+    def test_red_active_pill_design_ships_with_the_kit(self):
+        d = rh.design_dir("default", "red-active-pill")
+        self.assertTrue(d and d.endswith(os.path.join("graphics", "red-active-pill")))
+        for f in ("manifest.json", "captions.css", "captions.js"):
+            self.assertTrue(os.path.isfile(os.path.join(d, f)), f)
+        self.assertEqual(json.load(open(os.path.join(d, "manifest.json")))["kind"], "captions")
+
+    def test_full_face_can_be_a_saved_preference(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "preferences.json"
+            p.write_text(json.dumps({"graphic_layout": "full", "caption_template": "red-active-pill", "frame_layout": "split"}))
+            got = qe.load_preferences(str(p))
+        self.assertEqual(got, {"graphic_layout": "full", "caption_template": "red-active-pill"})
+        self.assertEqual(gg.graphic_layout({}, got), "full")
+        self.assertEqual(gg.graphic_layout({}, {}), "panel")
+
+    def test_a_preference_font_is_found_in_my_styles_fonts(self):
+        with tempfile.TemporaryDirectory() as d:
+            fonts = Path(d) / "my-styles" / "fonts"; fonts.mkdir(parents=True)
+            (fonts / "Arial-Bold.ttf").write_bytes(b"x")
+            with patch.object(qe, "KIT", d):
+                self.assertEqual(qe._font_path({"font_file": "Arial-Bold.ttf", "_style_dir": str(ROOT / "styles" / "default")}),
+                                 str(fonts / "Arial-Bold.ttf"))
 
 
 if __name__ == "__main__":

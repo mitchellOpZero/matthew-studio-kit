@@ -77,6 +77,7 @@ class PreferenceOverlayTests(unittest.TestCase):
         import quick_edit as qe
         self.assertIn("highlight_color", qe.PREF_KEYS)
         self.assertNotIn("frame_layout", qe.PREF_KEYS)
+        self.assertIn("graphic_layout", qe.PREF_KEYS)   # full face as a standing choice
         self.assertNotIn("logos", qe.PREF_KEYS)
         with tempfile.TemporaryDirectory() as d:
             pref = Path(d) / "preferences.json"
