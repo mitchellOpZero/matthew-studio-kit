@@ -10,6 +10,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
   kit draft <clip> [--style <name>] [--long]   make a job folder with a first edit plan (edl.json) + the transcript to review
                                                (default look: real-world UI replicas; --long is a 16:9 YouTube edit)
+  kit check <job...>                           the gate preview and render use: HyperFrames lint/check + graphic layout
   kit preview <job> [<job> ...] [--rebuild]    open each job in its own Studio tab (live; nothing rendered until kit render)
   kit preview --stop                           close the Studio servers
   kit render <job>                             render the job as it stands in Studio, run QA; a PASS goes to done/
@@ -652,6 +653,19 @@ def finish_render(mp4: Path, job: Path) -> int:
     return 2
 
 
+def cmd_check(a) -> int:
+    """The same gate preview and render use, on its own: HyperFrames lint + check and the kit's layout guard."""
+    hfr = hfm(); bad = 0
+    for name in a.jobs:
+        job = resolve_job(name); proj = hfr.project_dir(job.name)
+        if not os.path.exists(os.path.join(proj, "index.html")):
+            die(f"{job.name}: no project yet (kit preview {job.name} builds it)")
+        code, log = hfr.check(proj)
+        print(f"{job.name}: {'OK' if not code else 'ERRORS'}\n{log}")
+        bad |= code
+    return 1 if bad else 0
+
+
 def cmd_preview(a) -> int:
     """Open each job in HyperFrames Studio (live preview, nothing rendered), one tab per job."""
     render_hf = hfm()
@@ -669,9 +683,11 @@ def cmd_preview(a) -> int:
         json.dump(edl, open(edl_p, "w"), indent=2)
         proj, status = render_hf.build(edl_p, force=a.rebuild)
         code, log = render_hf.check(proj)
-        if code:
-            print(log[-2000:])
-            die(f"{job.name}: hyperframes check failed (above). Fix {proj}/index.html, then kit preview {job.name} again.")
+        if code:   # the gate: nothing with lint/check errors opens; a Studio already showing this project is closed
+            render_hf.stop(proj)
+            print(log[-6000:])
+            die(f"{job.name}: not opened, HyperFrames check found errors (above). Fix every one in {proj} (or the plan), "
+                f"then kit preview {job.name} again. Never open the project with hyperframes preview directly.")
         if "note, caption colour" in log:
             print(f"{job.name}: {log}")
         url, started = render_hf.preview(proj, a.port + i)
@@ -1247,9 +1263,11 @@ def cmd_blocks(a) -> int:
     if not a.words:
         die("name a block, e.g. kit blocks test ai-chat-reveal")
     name = a.words[0]
-    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5}], "style_name": a.style or "default"}
+    # a try-out shows the block's own sample text; in a real edit its text must be his words (graphic_guard)
+    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5, "invented_ok": True}], "style_name": a.style or "default"}
     still = try_job(sample_job(f"block-{name}", a.clip, 4.0, extra), [1.0, 2.0, 3.2])
-    print(f"OK {name}: still {still}\nplace it with the plan's \"blocks\" (skills/graphics)")
+    print(f"OK {name}: still {still}\nplace it with the plan's \"blocks\" (skills/graphics). The still shows the block's sample "
+          "text; in the edit, give it his words with \"data\" / \"vars\" (text he never says stops the preview).")
     return 0
 
 
@@ -1306,6 +1324,7 @@ def main() -> int:
     r = sp.add_parser("render"); r.add_argument("job")
     pv = sp.add_parser("preview"); pv.add_argument("jobs", nargs="*"); pv.add_argument("--port", type=int, default=3101)
     pv.add_argument("--rebuild", action="store_true"); pv.add_argument("--open", action="store_true"); pv.add_argument("--stop", action="store_true")
+    ck = sp.add_parser("check"); ck.add_argument("jobs", nargs="+")
     q = sp.add_parser("qa"); q.add_argument("video"); q.add_argument("--job")
     cc = sp.add_parser("capcut"); cc.add_argument("job")
     s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet", "push", "pull"])
@@ -1340,7 +1359,7 @@ def main() -> int:
         if a.cmd in ("draft", "doctor"):   # a tested update switches in only at the start of a new edit, never mid-fix
             deps.apply()
         deps.auto()
-    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "qa": cmd_qa,
+    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "check": cmd_check, "qa": cmd_qa,
             "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library, "capcut": cmd_capcut}[a.cmd](a)
 
 

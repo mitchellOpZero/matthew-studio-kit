@@ -81,12 +81,12 @@ class LibraryTests(unittest.TestCase):
         self.assertIn("width:1080px;height:960px", html)
         self.assertIn("transform:scale(1.00000)", html)
 
-    def test_block_keeps_its_canvas_scaled_into_the_panel(self):
+    def test_block_is_never_scaled_up_and_fits_the_panel(self):
         html = rh.write_html(self._tl([{"name": "ai-chat-reveal", "start": 0, "frames": 60, "vars": {}, "box": None}]),
-                             {"ai-chat-reveal": {"id": "ai-chat-reveal", "w": 1080, "h": 1920, "dur": 19, "fluid": False,
+                             {"ai-chat-reveal": {"id": "ai-chat-reveal", "w": 540, "h": 400, "dur": 19, "fluid": False,
                                                  "src": "compositions/ai-chat-reveal.html"}})
-        self.assertIn('data-width="1080" data-height="1920"', html)
-        self.assertIn("transform:scale(0.50000)", html)
+        self.assertIn('data-width="540" data-height="400"', html)
+        self.assertIn("transform:scale(1.00000)", html)
 
 
 class FrameLayoutTests(unittest.TestCase):

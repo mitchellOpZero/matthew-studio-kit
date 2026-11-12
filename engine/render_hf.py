@@ -14,10 +14,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import quick_edit as qe  # noqa: E402
 import timeline as tlm  # noqa: E402
 import audio_clean  # noqa: E402
+import graphic_guard as gg  # noqa: E402
 
 KIT = qe.KIT
 ENGINE = os.path.join(KIT, "engine")
 STUDIO = os.path.join(KIT, ".work", "_studio")
+LOOKS = os.path.join(KIT, "graphics", "_looks")              # real-look restyles for library blocks (<name>.css)
 BLOCKS = os.path.join(KIT, ".cache", "blocks")             # library blocks, installed once, reused offline
 FLOOR = os.path.join(ENGINE, "hyperframes.json")            # the HyperFrames version this kit release was tested with
 LIVE = os.path.join(KIT, ".cache", "deps", "hyperframes.json")   # a newer version that passed its test (engine/deps.py)
@@ -187,6 +189,58 @@ def block_meta(path, name):
             "dur": float(dur), "src": rel, "fluid": fluid}
 
 
+BLUR = re.compile(r"(-webkit-)?backdrop-filter\s*:[^;}]*;?|filter\s*:\s*blur\([^)]*\)[^;}]*;?", re.I)
+
+
+def real_look(html_text, name):
+    """Library blocks are demos: soft blurred backdrops, see-through cards. On his video a graphic is a sharp, solid
+    replica, so blur filters are stripped and the kit's real-look restyle for that block (graphics/_looks/<name>.css),
+    if there is one, is added last inside the block's own <style>."""
+    out = BLUR.sub("", html_text)
+    look = os.path.join(LOOKS, f"{name}.css")
+    if os.path.exists(look):
+        css = open(look).read()
+        i = out.rfind("</style>")
+        out = out[:i] + "\n/* kit real look: graphics/_looks/" + name + ".css */\n" + css + "\n" + out[i:] if i >= 0 else out
+    return out
+
+
+def reflow(html_text, w0, h0, w, h):
+    """A fixed-canvas block laid out at the box's own size instead of scaled into it: the canvas size on the root
+    element and in its CSS becomes the box size, so text renders at its designed pixel size, sharp, with no scaling."""
+    out = re.sub(rf'data-width="{w0}"', f'data-width="{w}"', html_text, count=1)
+    out = re.sub(rf'data-height="{h0}"', f'data-height="{h}"', out, count=1)
+    out = re.sub(rf"(?<![-\w])width:\s*{w0}px", f"width: {w}px", out)
+    out = re.sub(rf"(?<![-\w])height:\s*{h0}px", f"height: {h}px", out)
+    return out
+
+
+def prepare_block(b, i, proj, meta):
+    """This mount's own copy of the block, next to the installed one: the plan's data in place of the block's sample
+    content, the real-look restyle, and (fit "native", the default) the canvas reflowed to the box. Returns (meta for
+    this mount, the texts it shows)."""
+    src_rel = meta.get("src") or f"compositions/{b['name']}.html"
+    src = open(os.path.join(proj, src_rel)).read()
+    data = gg.primitive_data(src)
+    if b.get("data") is not None:
+        if data is None and "data-hf-primitive-data" not in src:
+            qe.die(f"block {b['name']} has no data to replace; set its text with vars, or build a replica")
+        data = b["data"] if not isinstance(b["data"], dict) or not isinstance(data, dict) else {**data, **b["data"]}
+        src = gg.set_primitive_data(src, data)
+    texts = gg.strings_in(data) + gg.strings_in(b.get("vars") or {})
+    src = real_look(src, b["name"])
+    m = dict(meta)
+    x, y, w, h = b["box"]
+    if not m.get("fluid"):
+        k = min(w / m["w"], h / m["h"])
+        if b.get("fit") != "scale" or k < gg.MIN_SCALE:
+            src = reflow(src, m["w"], m["h"], round(w), round(h)); m["w"], m["h"] = round(w), round(h)
+    base, ext = os.path.splitext(src_rel)
+    m["src"] = f"{base}--{i}{ext}"
+    open(os.path.join(proj, m["src"]), "w").write(src)
+    return m, texts
+
+
 # ---------------------------------------------------------------- caption designs
 def design_dir(style_name, name):
     """A style's own caption design (my-styles or styles/<style>/templates/<name>/), else a shared one in graphics/<name>/."""
@@ -207,6 +261,30 @@ def caption_design(tl):
 
 
 # ---------------------------------------------------------------- the project
+def split_windows(tl, lens=None):
+    """The frame spans (start, end) a library block is on screen, merged when they touch: the split frame's spans."""
+    out, bl = [], tl.get("blocks") or []
+    for i, b in sorted(enumerate(bl), key=lambda ib: ib[1]["start"]):
+        end = b["start"] + (lens[i] if lens else b["frames"])
+        if out and b["start"] <= out[-1][1]: out[-1][1] = max(out[-1][1], end)
+        else: out.append([b["start"], end])
+    return [tuple(w) for w in out]
+
+
+def face_pos(tl):
+    """object-position y (%) for his face in the split frame's bottom half: the face box centred in the half (his chin
+    kept in when the face is tall), from the face found in the clip; 28% when none was found."""
+    f = (tl.get("style") or {}).get("face_focus_y")
+    W, H, sw, sh = tl["width"], tl["height"], tl.get("src_w") or 1080, tl.get("src_h") or 1920
+    ph = H - H // 2; rh = sh * W / sw
+    if not f or rh <= ph: return 28.0
+    top, bot = f["top"] * rh, f["bottom"] * rh
+    off = (top + bot) / 2 - ph * 0.48
+    off = min(off, top - ph * 0.06) if bot - top > ph * 0.85 else off   # a very tall face: keep from the forehead down
+    off = max(0.0, min(rh - ph, max(off, bot + ph * 0.04 - ph)))         # never cut the chin
+    return off / (rh - ph) * 100
+
+
 def write_html(tl, blocks_meta):
     fps, W, H = tl["fps"], tl["width"], tl["height"]
     st = tl["style"]; T = tl["frames"] / fps
@@ -231,26 +309,31 @@ def write_html(tl, blocks_meta):
         for f, v in enumerate(curve):
             js.append(f'tl.set("{sel}", {{scale: {v}, opacity: {1 if v > 0 else 0}}}, {jt(start + f)});')
 
-    # camera: muted pieces of his clip, each cropped to its output-shaped window (punch-ins are tighter windows).
-    # frame_layout=split: reserve the top half for graphics (opaque panel) and put his face in the bottom half,
-    # the same box the kit already uses for b-roll layout=split.
-    if frame_split:
-        body.append(f'<div id="graphic-panel" style="position:absolute;left:0;top:0;width:{W}px;height:{H // 2}px;'
-                    f'background:{panel_color}"></div>')
-        head = (f"left:0;top:{H // 2}px;width:{W}px;height:{H - H // 2}px;object-fit:cover;object-position:50% 28%")
-        for i, p_ in enumerate(tl["camera"]):
-            n = p_["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)
-            body.append(f'<video id="cam{i}" src="assets/{p_["src"]}" muted playsinline {span(p_["start"], n)} '
-                        f'data-media-start="{s(p_["src_frame"])}" data-track-index="1" '
+    # camera: muted pieces of his clip, each cropped to its output-shaped window (punch-ins are tighter windows), full frame.
+    for i, p in enumerate(tl["camera"]):
+        n = p["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)   # one frame under the next piece: never a gap
+        body.append(framed(f"cam{i}", p["src"], p["start"], n, p["src_frame"], p["crop"], tl["src_w"], tl["src_h"], 1))
+        if p.get("drift"):
+            x, y, w, h = p["crop"]; k = W / w
+            js.append(f'tl.fromTo("#cam{i}", {{scale: 1}}, {{scale: {1 + p["drift"]}, duration: {p["frames"] / fps:.4f}, ease: "none", '
+                      f'transformOrigin: "{x * k + W / 2:.1f}px {y * k + H / 2:.1f}px"}}, {jt(p["start"])});')
+
+    # frame_layout=split: while a graphic is on screen, the top half is the graphic panel (opaque) and his face sits in
+    # the bottom half, framed on his face; the rest of the time (the hook, between graphics) his face is full frame,
+    # never an empty panel.
+    lens = [min(b["frames"], int((blocks_meta.get(i) or blocks_meta.get(b["name"]) or {"dur": 9999})["dur"] * fps))
+            for i, b in enumerate(tl.get("blocks") or [])]
+    windows = split_windows(tl, lens) if frame_split else []
+    head = (f"left:0;top:{H // 2}px;width:{W}px;height:{H - H // 2}px;object-fit:cover;object-position:50% {face_pos(tl):.1f}%")
+    for wi, (w0, w1) in enumerate(windows):
+        body.append(f'<div id="panel{wi}" class="clip" {span(w0, w1 - w0)} data-track-index="20" style="position:absolute;left:0;top:0;'
+                    f'width:{W}px;height:{H // 2}px;background:{panel_color}"></div>')
+        pieces = [p for p in tl["camera"] if p["start"] < w1 and p["start"] + p["frames"] > w0]
+        for j, p in enumerate(pieces):
+            a0 = max(p["start"], w0); a1 = min(p["start"] + p["frames"] + (1 if j < len(pieces) - 1 else 0), w1)
+            body.append(f'<video id="head{wi}_{j}" src="assets/{p["src"]}" muted playsinline {span(a0, a1 - a0)} '
+                        f'data-media-start="{s(p["src_frame"] + a0 - p["start"])}" data-track-index="{21 + j % 2}" '
                         f'style="position:absolute;{head}"></video>')
-    else:
-        for i, p in enumerate(tl["camera"]):
-            n = p["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)   # one frame under the next piece: never a gap
-            body.append(framed(f"cam{i}", p["src"], p["start"], n, p["src_frame"], p["crop"], tl["src_w"], tl["src_h"], 1))
-            if p.get("drift"):
-                x, y, w, h = p["crop"]; k = W / w
-                js.append(f'tl.fromTo("#cam{i}", {{scale: 1}}, {{scale: {1 + p["drift"]}, duration: {p["frames"] / fps:.4f}, ease: "none", '
-                          f'transformOrigin: "{x * k + W / 2:.1f}px {y * k + H / 2:.1f}px"}}, {jt(p["start"])});')
 
     # b-roll: muted, over the camera. full = the whole frame (cropped to the output shape); pip = full frame with his face
     # in a corner box (screen recordings on long-form); split = b-roll on top, his face on the bottom half (vertical)
@@ -284,7 +367,7 @@ def write_html(tl, blocks_meta):
     ks, kpop = float(st.get("keyword_scale", 1.0)), float(st.get("kw_pop_pct", 0)) / 100   # keyword size, and its pop as it's spoken
     design = caption_design(tl)
     # during a split screen (b-roll top, his face bottom) captions sit on the seam between the two, off his face
-    seams = [(b["start"], b["start"] + b["frames"]) for b in tl["broll"] if b.get("layout") == "split"]
+    seams = [(b["start"], b["start"] + b["frames"]) for b in tl["broll"] if b.get("layout") == "split"] + windows
     for i, c in enumerate(tl["captions"]):
         t0 = c.get("t0", c["start"])
         lines = []
@@ -302,7 +385,7 @@ def write_html(tl, blocks_meta):
                     js.append(f'tl.fromTo("#{wid}", {{scale: {1 + kpop:g}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, ease: "none"}}, {jt(w["at"])});')
             lines.append("<div>" + " ".join(ws) + "</div>")
         px = c["size"] * st.get("font_css_scale", 0.82)
-        on_seam = frame_split or any(c["start"] < b and c["end"] > a for a, b in seams)
+        on_seam = any(c["start"] < b and c["end"] > a for a, b in seams)
         seam = f' style="top:{H / 2:.0f}px"' if on_seam else ""
         caps_html.append(f'<div id="cap{i}" class="clip" {span(c["start"], max(1, c["end"] - c["start"]))} '
                     f'data-track-index="2"><div class="cap"{seam}><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
@@ -336,21 +419,23 @@ def write_html(tl, blocks_meta):
         pop(f"#gfxin{i}", g["start"], CARD_POP)
         js.append(f'tl.to("#gfxin{i}", {{opacity: 0, duration: 0.12, ease: "none"}}, {jt(g["start"] + g["frames"] - 0.12 * fps)});')
 
-    # library blocks: HyperFrames sub-compositions, mounted full frame or in the plan's box [x, y, w, h]
+    # library blocks: HyperFrames sub-compositions, each in its box [x, y, w, h]. On a vertical Short the box is always
+    # inside the top graphic panel (graphic_guard.place_blocks). A block's own canvas is never scaled up, and a block
+    # prepared at the box size (prepare_block) mounts at scale 1: sharp text, no soft upscaled card.
     for i, b in enumerate(tl.get("blocks") or []):
-        m = blocks_meta[b["name"]]
+        m = blocks_meta.get(i) or blocks_meta[b["name"]]
         n = min(b["frames"], int(m["dur"] * fps))
-        default_box = [0, 0, W, H // 2] if frame_split else [0, 0, W, H]
+        default_box = gg.graphic_area(W, H) if frame_split else [0, 0, W, H]
         x, y, w, h = b.get("box") or default_box
         if m.get("fluid"):   # a component fills the box it's given, at full resolution
             mw, mh, k = round(w), round(h), 1.0
-        else:                # a block keeps its own canvas, scaled to fit the box and centred in it
-            mw, mh = m["w"], m["h"]; k = min(w / mw, h / mh)
+        else:                # a block keeps its own canvas, fitted into the box (never enlarged) and centred in it
+            mw, mh = m["w"], m["h"]; k = min(1.0, w / mw, h / mh)
             x, y = x + (w - mw * k) / 2, y + (h - mh * k) / 2
         vv = f" data-variable-values='{html.escape(json.dumps(b['vars']), quote=True)}'" if b.get("vars") else ""
         # a graphic that fills the reserved top panel stays square-cornered, like a real screen
-        fills_panel = frame_split and b.get("box") in (None, default_box, [0, 0, W, H // 2])
-        radius = 0 if fills_panel else (round(28 / k) if k < 1 else 0)
+        fills_panel = frame_split and [round(v) for v in (b.get("box") or default_box)] == [round(v) for v in default_box]
+        radius = 0 if fills_panel else (round(28 / k) if k < 1 else 28)
         body.append(f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="{m.get("src") or f"compositions/{b['name']}.html"}" '
                     f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{mw}" data-height="{mh}"{vv} '
                     f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{mw}px;height:{mh}px;'
@@ -428,7 +513,16 @@ def build(edl_path, force=False):
     for x in tl["sfx"]:
         x["dur_s"] = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
                                            media[x["file"]]], capture_output=True, text=True).stdout.strip() or 0.5)
-    blocks_meta = {b["name"]: install_block(b["name"], proj, tl.get("style_name") or "") for b in tl.get("blocks") or []}
+    installed = {b["name"]: install_block(b["name"], proj, tl.get("style_name") or "") for b in tl.get("blocks") or []}
+    blocks_meta = {}
+    for i, b in enumerate(tl.get("blocks") or []):
+        if not b.get("box"): b["box"] = gg.graphic_area(tl["width"], tl["height"]) if gg.is_vertical(tl["width"], tl["height"]) else [0, 0, tl["width"], tl["height"]]
+        blocks_meta[i], b["texts"] = prepare_block(b, i, proj, installed[b["name"]])
+    bad = gg.check_text(tl.get("blocks") or [], tl.get("graphics") or [], tl.get("words") or [], tl["fps"])
+    if bad:
+        qe.die("on-screen text he never says (graphics show his words, not invented ones):\n  " + "\n  ".join(bad)
+               + "\nPut what he actually says at that moment in the block's \"data\" / \"vars\" (or the text card), then preview again."
+               + " Only if he asked for that exact text, set \"invented_ok\": true on the block.")
     tl.setdefault('audio_processing', {}).update(voice_track(tl, os.path.join(a, "voice.wav")))
     idx = os.path.join(proj, "index.html")
     open(idx, "w").write(write_html(tl, blocks_meta))
@@ -440,24 +534,70 @@ def build(edl_path, force=False):
     return proj, "built from the plan; " + tl.get("caption_place", "")
 
 
+def layout_errors(proj):
+    """The kit's own layout gate on index.html as it stands (hand edits included): on a vertical Short with the split
+    frame, every mounted block has to sit inside the top graphic panel, never on his face or across the caption seam,
+    at a phone-readable size. Returns error lines."""
+    idx = os.path.join(proj, "index.html")
+    if not os.path.exists(idx): return []
+    src = open(idx).read()
+    root = re.search(r'data-composition-id="main"[^>]*?data-width="(\d+)"[^>]*?data-height="(\d+)"', src)
+    if not root: return []
+    W, H = int(root.group(1)), int(root.group(2))
+    if not gg.is_vertical(W, H): return []
+    errs, area = [], gg.graphic_area(W, H)
+    for tag in re.findall(r"<div\b[^>]*data-composition-src=[^>]*>", src):
+        bid = (re.search(r'id="([^"]+)"', tag) or [None, "?"])[1]
+        st = (re.search(r'style="([^"]*)"', tag) or [None, ""])[1]
+        num = lambda k: (lambda m: float(m.group(1)) if m else None)(re.search(rf"(?<![-\w]){k}:\s*(-?[\d.]+)px", st))
+        x, y, w, h = num("left"), num("top"), num("width"), num("height")
+        if None in (x, y, w, h):
+            errs.append(f"layout: block #{bid} has no fixed box (left/top/width/height in px); mount it in the top graphic panel {area}")
+            continue
+        k = (lambda m: float(m.group(1)) if m else 1.0)(re.search(r"scale\(([\d.]+)\)", st))
+        box = [x, y, w * k, h * k]
+        if gg.overlaps(box, gg.face_area(W, H)):
+            errs.append(f"layout: block #{bid} at {[round(v) for v in box]} covers his face; keep it inside the top graphic panel {area}")
+        elif not gg.inside(box, area):
+            errs.append(f"layout: block #{bid} at {[round(v) for v in box]} crosses the caption seam or the frame edge; keep it inside {area}")
+        if box[2] < gg.MIN_BOX_W_FRAC * W or box[3] < gg.MIN_BOX_H * H / 1920:
+            errs.append(f"layout: block #{bid} is {round(box[2])}x{round(box[3])} px, too small to read on a phone; give it the panel {area}")
+        if k > 1.001:
+            errs.append(f"layout: block #{bid} is scaled up {k:.2f}x, which makes it soft; lay it out at the box size instead")
+    return errs
+
+
+def _json_out(text):
+    """The JSON object HyperFrames printed, even with a notice before it. None when there is none."""
+    i = text.find("{")
+    while i >= 0:
+        try:
+            return json.JSONDecoder().raw_decode(text[i:])[0]
+        except ValueError:
+            i = text.find("{", i + 1)
+    return None
+
+
 def check(proj):
-    """HyperFrames' check, except that a caption word's colour against the footage behind it is a note, not a failure.
-    Its contrast test ignores the caption outline and depends on what happens to be behind the word in the sampled
-    frames, so it would block his approved keyword colour on one clip and pass it on the next. The colour is the style's
-    call (skills/style: look at the still)."""
+    """The gate before Studio opens and before a render: HyperFrames' check (lint, runtime, layout, contrast) plus the
+    kit's layout gate. Any error fails it, and output that can't be read fails it too (never "probably fine").
+    One exception: a caption word's colour against the footage behind it is a note, not a failure. Its contrast test
+    ignores the caption outline and depends on what happens to be behind the word in the sampled frames, so it would
+    block his approved keyword colour on one clip and pass it on the next (skills/style: look at the still)."""
     r = subprocess.run(hf() + ["check", "--json", os.path.abspath(proj)], cwd=proj, capture_output=True, text=True, env=at(proj))
-    try:
-        d = json.loads(r.stdout)
-    except ValueError:
-        return r.returncode, (r.stdout + r.stderr)
+    d = _json_out(r.stdout)
+    kit_errs = layout_errors(proj)
+    if not isinstance(d, dict):
+        return 1, "\n".join(kit_errs + ["hyperframes check gave no readable result (treated as failed):", (r.stdout + r.stderr)[-2500:]])
     errors, notes, total = [], [], 0
     for part, res in d.items():
         if not isinstance(res, dict) or not isinstance(res.get("findings"), list):
             continue
         total += res.get("errorCount") or 0
         for f in res["findings"]:
-            sel = str(f.get("selector", ""))
-            line = f"{part}: {f.get('code')} {sel} t={f.get('time', '')}: {f.get('message', '')} {f.get('fixHint', '')}".strip()
+            sel = str(f.get("selector", "") or f.get("elementId", ""))
+            where = f" ({os.path.basename(str(f['file']))}:{f.get('line', '')})" if f.get("file") else ""
+            line = f"{part}: {f.get('code')} {sel}{where} t={f.get('time', '')}: {f.get('message', '')} {f.get('fixHint', '')}".strip()
             if f.get("severity") != "error":
                 continue
             if part == "contrast" and sel.startswith("#w"):
@@ -465,10 +605,12 @@ def check(proj):
                              f"at {f.get('time')}s (outline not counted); a brighter option is {f.get('suggestedColor')}")
             else:
                 errors.append(line)
-    failed = bool(errors) or total > len(notes) or (not d.get("ok") and not notes)
-    log = "\n".join(errors + notes) or "check passed"
+    errors += kit_errs
+    failed = bool(errors) or total > len(notes) or (not d.get("ok") and not notes) or (r.returncode != 0 and not notes)
     if failed and not errors:
-        log = (r.stdout + r.stderr)[-3000:]
+        errors = [f"hyperframes check failed ({total} errors):", (r.stdout + r.stderr)[-3000:]]
+    head = [f"{len(errors)} error(s) to fix first:"] if errors else []
+    log = "\n".join(head + errors + notes) or "check passed"
     return (1 if failed else 0), log
 
 
