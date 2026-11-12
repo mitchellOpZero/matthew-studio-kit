@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.7
+
+- Message graphics (iMessage threads, DMs, notifications) show made-up, realistic texts from her, like real iMessages, never his script. They skip the word check (no "mark as allowed" flag), and the preview stops if a text copies a line he says, or if a library or saved message graphic still shows the texts it came with.
+- Every other graphic is still his words only, and now that includes words typed straight into a graphic's HTML, not just its data. App chrome (Search, Delivered, times) is fine; `data-ui` marks other chrome.
+- No forced half screen. While a graphic shows, the top panel is only as tall as the graphic needs (a short thread gets a short panel and more of his face), with his face right below it. New choice when he asks: `"graphic_layout": "full"` keeps his face full frame and graphics pop in around him, or cut away full screen when there's no room. A full-frame style is no longer forced into a panel. Graphics still never cover his face, and tiny or blurry graphics are still refused.
+- Captions keep one size for the whole video (a long one breaks onto a second line instead of shrinking) and one height (no jumping to the seam while a graphic shows). Default height 0.75.
+- A Short never saves anything into his style by itself. A video's graphics go in `.work/<job>/graphics/<name>/`. A graphic an older video left in `my-styles/` without being saved is refused, so new Shorts don't inherit old text. `bin/kit graphics save <name> --job <job>` keeps one in his style, only when he asks. A `frame_layout` in a plan's `style` is ignored.
+
 ## 2.3.6
 
 - Graphics on a Short always go in the top panel, never on his face. Any block switches the frame to split while it shows, even in the `matthew` style or a plan that says full frame. A block placed over his face, across the caption seam, or too small to read is moved into the panel. Between graphics (and in the hook) his face is full frame, so there is no empty dark top half.

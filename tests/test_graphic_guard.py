@@ -25,37 +25,47 @@ def blk(name="thread-message-stack", box=None, **kw):
     return dict({"name": name, "start": 30, "frames": 90, "vars": {}, "box": box}, **kw)
 
 
-class PlacementTests(unittest.TestCase):
-    def test_area_is_the_top_panel_above_the_caption_seam(self):
-        x, y, w, h = AREA
-        self.assertEqual((x, y, w), (0, 0, W))
-        self.assertLess(y + h, H / 2)                  # clear of the seam the captions sit on
-        self.assertGreater(h, H / 2 - 120)             # but most of the panel
+CAP_TOP = gg.caption_top(0.75, 80 * 1.6, H)     # the default look's fixed caption line
+PMAX = gg.panel_max(H, CAP_TOP)
+THREAD3 = {"messages": [{"side": "incoming", "text": "ok wait"}, {"side": "outgoing", "text": "lol"}, {"side": "incoming", "text": "u up?"}]}
 
-    def test_no_box_fills_the_graphic_area(self):
-        b = [blk()]
-        self.assertEqual(gg.place_blocks(b, W, H), [])
-        self.assertEqual(b[0]["box"], AREA)
+
+class PlacementTests(unittest.TestCase):
+    """Panel layout: the panel is sized to the graphic (not forced to half the screen), above his face and the captions."""
+    def place(self, b, metas=None):
+        return gg.place_blocks(b, W, H, "panel", CAP_TOP, None, metas)
+
+    def test_panel_is_sized_to_the_graphic_not_half_the_screen(self):
+        short, tall = [blk(data=THREAD3)], [blk(data={"messages": THREAD3["messages"] * 3})]
+        self.place(short); self.place(tall)
+        self.assertEqual(short[0]["box"][:3], [0, 0, W]); self.assertEqual(short[0]["show"], "panel")
+        self.assertLess(short[0]["box"][3], H / 2 - 200)                 # a 3-text thread: a short panel, more of his face
+        self.assertGreater(tall[0]["box"][3], short[0]["box"][3])         # a longer thread gets a taller panel
+        self.assertLessEqual(tall[0]["box"][3], PMAX)                     # never down onto his face or the captions
+        self.assertGreaterEqual(short[0]["box"][3], gg.PANEL_MIN_H)       # never a tiny strip
+
+    def test_panel_h_and_canvas_size(self):
+        b = [blk(panel_h=600)]; self.place(b); self.assertEqual(b[0]["box"], [0, 0, W, 600])
+        b = [blk("google-search")]; self.place(b, {0: {"w": 1080, "h": 700, "fluid": False}})
+        self.assertEqual(b[0]["box"], [0, 0, W, 700])                     # a 1080x700 canvas: a 700 px panel, no empty space
+
+    def test_panel_room_leaves_his_face_above_the_captions(self):
+        self.assertGreaterEqual(CAP_TOP - PMAX, gg.FACE_ROOM * H)
 
     def test_block_over_his_face_moves_into_the_panel(self):
-        b = [blk(box=[0, 520, 1080, 880])]            # Matthew's: a message thread on his chest
-        notes = gg.place_blocks(b, W, H)
-        self.assertEqual(b[0]["box"], AREA)
-        self.assertIn("covered his face", notes[0])
-
-    def test_block_across_the_seam_moves_into_the_panel(self):
-        b = [blk(box=[0, 300, 1080, 640])]            # ends at 940: inside the top half but under the capsule
-        self.assertIn("caption seam", gg.place_blocks(b, W, H)[0])
-        self.assertEqual(b[0]["box"], AREA)
+        b = [blk(box=[0, 1000, 1080, 880])]           # Matthew's: a message thread on his chest
+        notes = self.place(b)
+        self.assertEqual(b[0]["box"][:2], [0, 0]); self.assertLessEqual(b[0]["box"][3], PMAX)
+        self.assertIn("his face", notes[0])
 
     def test_tiny_corner_block_is_made_readable(self):
         b = [blk("macos-notification", box=[860, 40, 200, 120])]   # the near-invisible notification at the edge
-        self.assertIn("too small", gg.place_blocks(b, W, H)[0])
-        self.assertEqual(b[0]["box"], AREA)
+        self.assertIn("too small", self.place(b)[0])
+        self.assertEqual(b[0]["box"][2], W)
 
     def test_good_box_is_kept(self):
         b = [blk(box=[40, 60, 1000, 700])]
-        self.assertEqual(gg.place_blocks(b, W, H), [])
+        self.assertEqual(self.place(b), [])
         self.assertEqual(b[0]["box"], [40, 60, 1000, 700])
 
     def test_canned_text_piece_is_flagged(self):
@@ -76,18 +86,54 @@ class PlacementTests(unittest.TestCase):
 
     def test_overlay_on_his_face_moves_up(self):
         ovs = [{"x": 540, "y": 1400}, {"x": 540, "y": 400}]
-        notes = gg.place_overlays(ovs, W, H)
+        notes = gg.place_overlays(ovs, W, H, CAP_TOP)
         self.assertEqual(len(notes), 1)
-        self.assertLess(ovs[0]["y"], AREA[3]); self.assertEqual(ovs[1]["y"], 400)
+        self.assertLess(ovs[0]["y"], PMAX); self.assertEqual(ovs[1]["y"], 400)
 
 
-class SplitIsForcedTests(unittest.TestCase):
-    def test_blocks_force_split_even_when_plan_or_style_say_full(self):
-        for edl, st in (({"style": {"frame_layout": "full"}}, {"frame_layout": "split"}),   # plan override
-                        ({}, {"frame_layout": "full"}),                                   # a full-frame style
-                        ({}, {})):                                                        # matthew style: no frame_layout
+class FullFaceLayoutTests(unittest.TestCase):
+    """graphic_layout "full": his face stays full frame; graphics pop in around him or cut away full screen."""
+    SMALL_FACE = {"top": 0.42, "bottom": 0.62}     # a wide shot: room above his head
+    BIG_FACE = {"top": 0.12, "bottom": 0.60}       # a close-up: no room beside his face
+
+    def test_overlay_goes_beside_his_face_never_on_it(self):
+        b = [blk(data=THREAD3)]
+        gg.place_blocks(b, W, H, "full", CAP_TOP, self.SMALL_FACE)
+        self.assertEqual(b[0]["show"], "overlay")
+        self.assertFalse(gg.overlaps(b[0]["box"], gg.face_box(self.SMALL_FACE, W, H)))
+        self.assertLessEqual(b[0]["box"][1] + b[0]["box"][3], CAP_TOP)
+
+    def test_no_room_means_a_full_screen_cutaway(self):
+        b = [blk()]
+        gg.place_blocks(b, W, H, "full", CAP_TOP, self.BIG_FACE)
+        self.assertEqual((b[0]["show"], b[0]["box"]), ("cutaway", [0, 0, W, H]))
+
+    def test_asked_for_cutaway(self):
+        b = [blk(show="cutaway")]
+        gg.place_blocks(b, W, H, "full", CAP_TOP, self.SMALL_FACE)
+        self.assertEqual(b[0]["box"], [0, 0, W, H])
+
+    def test_box_on_his_face_is_moved(self):
+        b = [blk(box=[0, 700, 1080, 500])]
+        notes = gg.place_blocks(b, W, H, "full", CAP_TOP, self.SMALL_FACE)
+        self.assertTrue(notes); self.assertFalse(gg.overlaps(b[0]["box"], gg.face_box(self.SMALL_FACE, W, H)))
+
+    def test_layout_is_a_choice(self):
+        self.assertEqual(gg.graphic_layout({}, {"frame_layout": "split"}), "panel")
+        self.assertEqual(gg.graphic_layout({"graphic_layout": "full"}, {"frame_layout": "split"}), "full")
+        self.assertEqual(gg.graphic_layout({}, {"frame_layout": "full"}), "full")
+        self.assertEqual(gg.graphic_layout({}, {}), "panel")
+
+
+class LayoutIsAChoiceTests(unittest.TestCase):
+    def test_style_or_plan_picks_the_layout(self):
+        cases = (({}, {"frame_layout": "split"}, "split"),
+                 ({"graphic_layout": "full"}, {"frame_layout": "split"}, "full"),   # he asked for full face on this video
+                 ({}, {"frame_layout": "full"}, "full"),                            # a full-frame style isn't forced into a panel
+                 ({}, {}, "split"))
+        for edl, st, want in cases:
             out, note = tlm.frame_layout(edl, st, [{"name": "x"}], [], [], W, H)
-            self.assertEqual(out["frame_layout"], "split", (edl, st))
+            self.assertEqual(out["frame_layout"], want, (edl, st))
 
     def test_no_blocks_keeps_face_full_frame(self):
         out, _ = tlm.frame_layout({}, {"frame_layout": "split", "center_y_frac": 0.5}, [], [], [], W, H)
@@ -97,21 +143,52 @@ class SplitIsForcedTests(unittest.TestCase):
         out, _ = tlm.frame_layout({}, {"frame_layout": "full"}, [{"name": "x"}], [], [], 1920, 1080)
         self.assertEqual(out["frame_layout"], "full")
 
-    def test_mounted_block_sits_in_the_panel_and_captions_on_the_seam(self):
-        tl = {"fps": 30, "width": W, "height": H, "frames": 90, "font": "f.ttf", "camera": [], "broll": [], "sfx": [],
-              "captions": [{"start": 0, "end": 25, "t0": 0, "size": 80, "lines": [[{"text": "hook", "hot": False, "at": 0}]]},
-                           {"start": 40, "end": 70, "t0": 40, "size": 80, "lines": [[{"text": "hi", "hot": False, "at": 40}]]}],
-              "overlays": [], "graphics": [], "style_name": "", "src_w": 720, "src_h": 1280,
-              "blocks": [blk(box=list(AREA))], "style": {"frame_layout": "split", "loudness": {"I": -14, "TP": -1.5}}}
-        html = rh.write_html(tl, {0: {"id": "thread-message-stack", "w": AREA[2], "h": AREA[3], "dur": 8, "fluid": False,
-                                      "src": "compositions/thread-message-stack--0.html"}})
-        self.assertIn(f"left:0.0px;top:0.0px;width:{AREA[2]}px;height:{AREA[3]}px;transform-origin:0 0;transform:scale(1.00000)", html)
-        self.assertIn(f'class="cap" style="top:{H // 2}px"><div id="capin1"', html)   # on the seam while the block shows
-        self.assertIn('<div class="cap"><div id="capin0"', html)                      # the hook: full-frame height
+    def _tl(self, blocks, mode="panel", face=None):
+        cam = [{"start": 0, "frames": 90, "src": "src.mp4", "src_frame": 0, "crop": [0, 0, 720, 1280]}]
+        return {"fps": 30, "width": W, "height": H, "frames": 90, "font": "f.ttf", "camera": cam, "broll": [], "sfx": [],
+                "captions": [{"start": 0, "end": 25, "t0": 0, "size": 80, "lines": [[{"text": "hook", "hot": False, "at": 0}]]},
+                             {"start": 40, "end": 70, "t0": 40, "size": 80, "lines": [[{"text": "hi", "hot": False, "at": 40}]]}],
+                "overlays": [], "graphics": [], "style_name": "", "src_w": 720, "src_h": 1280,
+                "layout": {"mode": mode, "cap_top": CAP_TOP, "face": face},
+                "blocks": blocks, "style": {"frame_layout": "split" if mode == "panel" else "full", "center_y_frac": 0.75,
+                                            "loudness": {"I": -14, "TP": -1.5}}}
+
+    def test_mounted_panel_is_its_graphics_height_and_captions_never_move(self):
+        b = blk(data=THREAD3); gg.place_blocks([b], W, H, "panel", CAP_TOP)
+        ph = b["box"][3]
+        html = rh.write_html(self._tl([b]), {0: {"id": "thread-message-stack", "w": W, "h": ph, "dur": 8, "fluid": False,
+                                                 "src": "compositions/thread-message-stack--0.html"}})
+        self.assertIn(f"left:0.0px;top:0.0px;width:{W}px;height:{ph}px;transform-origin:0 0;transform:scale(1.00000)", html)
+        self.assertIn(f'width:{W}px;height:{ph}px;background:', html)                 # the panel is as tall as the graphic
+        self.assertIn(f"top:{ph}px;width:{W}px;height:{H - ph}px", html)               # his face right below it
+        self.assertNotIn('class="cap" style=', html)                                  # one caption height, all video
         self.assertIn('id="panel0" class="clip" data-start="1.000000" data-duration="3.000000"', html)   # panel only with the block
         with tempfile.TemporaryDirectory() as d:
             open(os.path.join(d, "index.html"), "w").write(html)
             self.assertEqual(rh.layout_errors(d), [])
+
+    def test_full_face_overlay_pops_in_and_passes_the_check(self):
+        face = FullFaceLayoutTests.SMALL_FACE
+        b = blk(data=THREAD3); gg.place_blocks([b], W, H, "full", CAP_TOP, face)
+        x, y, w, h = b["box"]
+        html = rh.write_html(self._tl([b], "full", face), {0: {"id": "t", "w": w, "h": h, "dur": 8, "fluid": False, "src": "compositions/t--0.html"}})
+        self.assertNotIn('id="panel0"', html)
+        self.assertIn('id="pop0"', html); self.assertIn('data-kit-show="overlay"', html)
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "index.html"), "w").write(html)
+            self.assertEqual(rh.layout_errors(d), [])
+            bad = html.replace(f"top:{y:.1f}px", "top:900.0px")                    # hand-dragged onto his face
+            open(os.path.join(d, "index.html"), "w").write(bad)
+            self.assertTrue(any("covers his face" in e for e in rh.layout_errors(d)))
+
+    def test_cutaway_must_fill_the_frame(self):
+        b = blk(show="cutaway"); gg.place_blocks([b], W, H, "full", CAP_TOP, None)
+        html = rh.write_html(self._tl([b], "full"), {0: {"id": "t", "w": W, "h": H, "dur": 8, "fluid": False, "src": "compositions/t--0.html"}})
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "index.html"), "w").write(html)
+            self.assertEqual(rh.layout_errors(d), [])
+            open(os.path.join(d, "index.html"), "w").write(html.replace(f"height:{H}px;transform-origin", "height:1100px;transform-origin"))
+            self.assertTrue(any("cutaway" in e for e in rh.layout_errors(d)))
 
 
 class HandEditLayoutTests(unittest.TestCase):

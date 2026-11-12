@@ -74,7 +74,7 @@ class LibraryTests(unittest.TestCase):
                 "style": {"frame_layout": layout, "loudness": {"I": -14, "TP": -1.5}}}
 
     def test_component_fills_the_top_panel(self):
-        html = rh.write_html(self._tl([{"name": "type-match-cut", "start": 0, "frames": 60, "vars": {}, "box": None}]),
+        html = rh.write_html(self._tl([{"name": "type-match-cut", "start": 0, "frames": 60, "vars": {}, "box": [0, 0, 1080, 960]}]),
                              {"type-match-cut": {"id": "type-match-cut", "w": 1080, "h": 1920, "dur": 4, "fluid": True,
                                                  "src": "compositions/components/type-match-cut.html"}})
         self.assertIn('data-composition-src="compositions/components/type-match-cut.html"', html)
@@ -94,16 +94,16 @@ class FrameLayoutTests(unittest.TestCase):
 
     def test_no_graphics_means_full_frame(self):
         st, note = tlm.frame_layout({}, self.st, [], [], [])
-        self.assertEqual(st["frame_layout"], "full"); self.assertEqual(st["center_y_frac"], 0.7); self.assertIn("full frame", note)
+        self.assertEqual(st["frame_layout"], "full"); self.assertIn("full frame", note)
+        self.assertEqual(st["center_y_frac"], 0.5)            # captions keep their one height; no swap
         self.assertEqual(self.st["frame_layout"], "split")   # the style itself is untouched
 
-    def test_graphics_keep_the_split(self):
-        for blocks, ovs, gfx in (([{"name": "x"}], [], []), ([], [{"x": 1}], []), ([], [], [{"text": "a"}])):
-            self.assertEqual(tlm.frame_layout({}, self.st, blocks, ovs, gfx)[0]["frame_layout"], "split")
+    def test_pictures_or_text_cards_alone_do_not_open_a_panel(self):
+        for ovs, gfx in (([{"x": 1}], []), ([], [{"text": "a"}])):
+            self.assertEqual(tlm.frame_layout({}, self.st, [], ovs, gfx)[0]["frame_layout"], "full")
 
-    def test_plan_choice_wins(self):
-        st, _ = tlm.frame_layout({"style": {"frame_layout": "split"}}, self.st, [], [], [])
-        self.assertEqual(st["frame_layout"], "split")
+    def test_blocks_keep_the_style_panel(self):
+        self.assertEqual(tlm.frame_layout({}, self.st, [{"name": "x"}], [], [], 1080, 1920)[0]["frame_layout"], "split")
 
     def test_full_styles_untouched(self):
         st, note = tlm.frame_layout({}, {"frame_layout": "full", "center_y_frac": 0.64}, [], [], [])

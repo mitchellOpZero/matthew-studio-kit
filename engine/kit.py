@@ -21,7 +21,10 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit style sheet <reel.mp4>                   a contact sheet of a reference reel (.work/_refs/) to build a style from
   kit style import <old kit folder>            copy his saved styles from the old Matthew Edit Kit
   kit graphics list | test <graphic>           the kit's own graphics (logo pop, picture card, text card)
-  kit blocks search <words> | add <name> | test <name>   HyperFrames library (about 450 blocks and components)
+  kit graphics save <name> --job <job> [--style <s>] | --style <s>
+                                               only when he asks to keep a graphic in his style: copy this video's
+                                               .work/<job>/graphics/<name>/ into my-styles (or keep one already there)
+  kit blocks search <words> | add <name> | test <name> [--job <job>]   HyperFrames library (about 450 blocks and components)
   kit library list [<words>] [--type t]        local files in library/ (b-roll, pictures, sound effects)
   kit library add <file> --type broll|picture|sfx --name <name> [--tags a,b]
   kit library find <words> [--kind ...] [--origin ai|stock] [--aspect vertical|horizontal|square]
@@ -1218,7 +1221,36 @@ def try_job(job: Path, at: list[float]) -> Path:
     return still
 
 
+def graphics_save(name: str, job: str | None, style: str) -> Path:
+    """He asked to keep a graphic in his style: copy this video's .work/<job>/graphics/<name>/ (or keep the one already in
+    my-styles/<style>/templates/<name>/) and mark it saved, so later videos may use it. Nothing else ever writes there."""
+    dst = USER_STYLES / style / "templates" / name
+    if job:
+        src = resolve_job(job) / "graphics" / name
+        if not (src / f"{name}.html").exists():
+            die(f"no {name}.html in {src.relative_to(KIT)}: build this video's graphic there first (skills/graphics)")
+        if not (style_dir(style) / "style.json").exists():
+            die(f"style {style!r} not found. Styles: {', '.join(list_styles())}")
+        snapshot(style)   # his copy of the style first (own_style), so undo can take it back
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst)
+    elif not (dst / f"{name}.html").exists():
+        die(f"no graphic {name!r} in my-styles/{style}/templates/ (name the video it came from with --job)")
+    mf = dst / "manifest.json"
+    m = json.load(open(mf)) if mf.exists() else {}
+    m.update({"kind": m.get("kind", "graphic"), "saved": True, "saved_on": dt.date.today().isoformat()})
+    json.dump(m, open(mf, "w"), indent=2)
+    log_change(style, f"kept graphic {name} in this style (he asked)")
+    return dst
+
+
 def cmd_graphics(a) -> int:
+    if a.action == "save":
+        if not a.name:
+            die("name the graphic, e.g. kit graphics save imessage-thread --job my-short")
+        dst = graphics_save(a.name, a.job, a.style or "default")
+        print(f"saved {a.name} in {dst.relative_to(KIT)}: later videos in this style can use it (with their own words / texts)")
+        return 0
     if a.action == "list":
         for p in sorted(GRAPHICS.glob("*/manifest.json")):
             m = json.load(open(p))
@@ -1264,10 +1296,13 @@ def cmd_blocks(a) -> int:
         die("name a block, e.g. kit blocks test ai-chat-reveal")
     name = a.words[0]
     # a try-out shows the block's own sample text; in a real edit its text must be his words (graphic_guard)
-    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5, "invented_ok": True}], "style_name": a.style or "default"}
+    extra = {"blocks": [{"name": name, "at": 0.3, "dur": 3.5, "tryout": True}], "style_name": a.style or "default"}
+    if getattr(a, "job", None):   # a graphic built for that video (.work/<job>/graphics/<name>/)
+        extra["graphics_job"] = str(resolve_job(a.job))
     still = try_job(sample_job(f"block-{name}", a.clip, 4.0, extra), [1.0, 2.0, 3.2])
     print(f"OK {name}: still {still}\nplace it with the plan's \"blocks\" (skills/graphics). The still shows the block's sample "
-          "text; in the edit, give it his words with \"data\" / \"vars\" (text he never says stops the preview).")
+          "text; in the edit, give it his words with \"data\" / \"vars\" (text he never says stops the preview), or for a "
+          "message graphic (iMessage, DM, notification) made-up realistic texts from her, never his script.")
     return 0
 
 
@@ -1330,8 +1365,9 @@ def main() -> int:
     s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet", "push", "pull"])
     s.add_argument("name", nargs="?"); s.add_argument("pairs", nargs="*"); s.add_argument("--as", dest="as_name"); s.add_argument("--clip")
     s.add_argument("--from", dest="base")
-    g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
-    b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "add", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
+    g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test", "save"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
+    g.add_argument("--job"); g.add_argument("--style")
+    b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "add", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style"); b.add_argument("--job")
     lb = sp.add_parser("library")
     lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "attach", "find", "override", "workflow", "sort", "upload"])
     lb.add_argument("args", nargs="*")
