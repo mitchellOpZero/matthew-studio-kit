@@ -1,6 +1,6 @@
-# premium-motion
+# default
 
-The creative look. Use it when he says go crazy, be creative, be innovative, make the graphics look cool, or premium. A plain "make a Short" stays on `matthew`.
+The kit's default look for every Short. Saved preferences (for example his red captions) only refine it; they never swap in a canned pack.
 
 Vertical (9:16) with a fixed frame: a reserved graphic panel in the **top half**, his talking head in the **bottom half**, and captions in a dark capsule sitting on the **seam** between them. The kit applies this when `frame_layout` is `split` (do not fight it in `index.html` unless a single graphic needs a tweak). His face stays in the lower half and is never covered.
 
@@ -10,7 +10,7 @@ The motion graphics are not a template pack. They are high-fidelity replicas of 
 
 1. **Read the transcript first.** List every concrete real-world thing he mentions: products, sites, UIs, numbers, documents, dashboards, messages. Google search, a ChatGPT answer, a Stripe dashboard, an email, a tweet, an analytics chart, a results page, a dollar amount with a product around it — each one is a graphic if it can be shown.
 
-2. **Build a faithful replica of each one**, as a new composition in `my-styles/premium-motion/templates/<name>/` (snapshot the style first; do not edit `styles/premium-motion/` on his Mac). Match the real product:
+2. **Build a faithful replica of each one**, as a new composition in `my-styles/default/templates/<name>/` (snapshot the style first; do not edit `styles/default/` on his Mac). Match the real product:
    - Real brand colours, typography, spacing, and layout. A Google search uses the real Google wordmark (the four-colour letters, or an official logo asset), a real search bar with the query, and real-styled result listings (blue titles, green/black URLs, grey snippets, favicons). If his page is missing or buried, the results should show that — not a caption that says "NOT INDEXED" on a designed card.
    - A ChatGPT / Stripe / Gmail / X / analytics graphic should look like that actual UI, not an abstract chart or a gold callout.
    - Use a live reference (a screenshot you capture, or a well-known official marketing/screenshot reference) when it helps, then match it closely. Do not invent a stylized cousin of the product.
@@ -21,7 +21,7 @@ The motion graphics are not a template pack. They are high-fidelity replicas of 
 
 This is the default for a creative ask, not the only mode the kit has. A reference reel still wins for the look; a new style is still allowed; if he asks for a different direction, follow that.
 
-3. **Quality gate, before you show him anything and again after every later change.** For every graphic, grab an in, mid, and out still (`bin/kit blocks test <name> --style premium-motion`, then after preview, snapshot the Studio project at those times — see skills/graphics). Actually look at the images. If the browser preview tool fails, stills are the path; do not skip looking. Ask: would this pass for the real thing, and does the frame look professionally designed? Redo any that fail, up to three tries, before the preview is considered ready. It must look good every time, including after his edits.
+3. **Quality gate, before you show him anything and again after every later change.** For every graphic, grab an in, mid, and out still (`bin/kit blocks test <name> --style default`, then after preview, snapshot the Studio project at those times — see skills/graphics). Actually look at the images. If the browser preview tool fails, stills are the path; do not skip looking. Ask: would this pass for the real thing, and does the frame look professionally designed? Redo any that fail, up to three tries, before the preview is considered ready. It must look good every time, including after his edits.
 
 4. **Captions.** Automatic, capsule template, on the seam. Mixed case, a few words, never over his face and never over the graphic panel. Do not add a text card that repeats the caption.
 

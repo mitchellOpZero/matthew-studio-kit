@@ -1,4 +1,4 @@
-"""premium-motion, creative instructions, and preview-before-render. No media or network."""
+"""default, creative instructions, and preview-before-render. No media or network."""
 import json
 import sys
 import unittest
@@ -8,11 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "engine"))
 import kit  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-STYLE = ROOT / "styles" / "premium-motion"
+STYLE = ROOT / "styles" / "default"
 BLOCKS = ("kinetic-label", "stat-count", "callout", "lower-third", "idea-swipe")
 
 
-class PremiumMotionTests(unittest.TestCase):
+class DefaultStyleTests(unittest.TestCase):
     def test_style_validates_and_leaves_the_basics_alone(self):
         st = json.loads((STYLE / "style.json").read_text())
         self.assertEqual(kit.validate_style(st, STYLE), [])
@@ -66,8 +66,8 @@ class PremiumMotionTests(unittest.TestCase):
         self.assertNotIn("go crazy", agents.lower())
         self.assertNotIn("premium-motion", agents.lower())
         self.assertIn("2.3.1", (ROOT / "CHANGELOG.md").read_text())
-        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.1")
-        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.1")
+        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.2")
+        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.2")
 
 
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.2
+
+- The default look's folder is now called `default`. Old edit plans that say `premium-motion` still open it.
+
 ## 2.3.1
 
 - The default look for a Short or a YouTube video is real-world UI replicas (a real Google page, a real ChatGPT window) in a clean layout, with a quality check after every change. The old canned title/stat/swipe pack is no longer the default.
@@ -10,10 +14,7 @@
 
 ## 2.3.0
 
-- Creative asks ("go crazy", "be creative", "make the graphics look cool") use the full HyperFrames block library and custom GSAP/HTML graphics. A plain "make a Short" still uses `matthew`.
-- New built-in style `premium-motion`: kinetic captions (Outfit), a letter-staggered title, a count-up stat, a sticker callout, an editorial lower third, and a one-word swipe. `matthew` and `matthew-long` are unchanged.
-- Codex may save a new style on its own when none of the current looks fit, without overwriting an existing one, and tells Matthew the name so he can keep, tweak, or delete it. A reference reel still becomes a style, and that style can carry the same custom graphics.
-- Previews are the default for one video or a batch of about 8. Each video opens in its own Studio tab. Files render only when he says "render them", "render 3 and 5", "render it", or "send it to CapCut". Change notes update the preview and do not render.
+- Previews before rendering, one Studio tab per video, about 8 at a time. (Its graphics changes were replaced by 2.3.1.)
 
 ## 2.2.1
 

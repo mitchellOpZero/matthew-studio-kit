@@ -33,7 +33,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.3.1**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0. See `CHANGELOG.md`.
+- `bin/kit version` shows the version and exact commit. This release is **2.3.2**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1. See `CHANGELOG.md`.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
