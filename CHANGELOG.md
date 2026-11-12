@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.4
+
+- "Matthew style" uses his old look (red captions, like his old videos) on that video only. It is never saved, so the next video is back on the default.
+
 ## 2.3.3
 
 - Removed the old canned graphics (title card, count-up stat, sticker callout, lower third, word swipe) and the old caption animation from the default look.

@@ -4,7 +4,7 @@ Turns raw talking-head clips into finished Shorts and YouTube videos, on your Ma
 You watch the whole edit live in HyperFrames Studio before anything renders, change anything by asking (or by hand),
 then it renders once and goes through the quality check.
 The default look shows the real things you're talking about (a real Google page, a real ChatGPT window) in a clean layout,
-with a quality check after every change. Say what to tweak (for example, "make my captions red again") and it is saved
+with a quality check after every change. Say what to tweak (for example, "make my captions smaller") and it is saved
 as a preference on top of that default — it never goes back to the old canned pack.
 
 ## Quick start
@@ -33,7 +33,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.3.3**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2. See `CHANGELOG.md`.
+- `bin/kit version` shows the version and exact commit. This release is **2.3.4**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2, 2.3.3. See `CHANGELOG.md`.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
@@ -47,7 +47,7 @@ Codex opens a Studio preview and stops. Nothing is rendered until you say so.
 - "Make this a Short." Or "make a 15 second Short from inbox/clip.MP4." You get a Studio link. Graphics already look like the real things you mention.
 - "Make this a YouTube video." A 16:9 edit, same default look, never covering your face.
 - "$episode" or "edit everything in inbox": every clip opens in its own Studio tab, numbered. About 8 at a time is normal. Nothing renders yet.
-- "On 2, cut the opener." "Make my captions red again." That preview updates, and look tweaks are saved so they stick. The others stay.
+- "On 2, cut the opener." "Make my captions smaller." That preview updates, and look tweaks are saved so they stick. The others stay.
 - "Render them." Renders the whole batch into `done/`.
 - "Render 3 and 5." Renders those numbers only.
 - "Render it." Renders the one video you are looking at.
@@ -77,7 +77,7 @@ Replaces the Remotion-based Matthew Edit Kit (1.x), which still works on its own
 
 ### The default look (2.3.1)
 
-Every Short and YouTube video starts from real-world UI replicas in a clean layout. Say what to change and it is saved as a preference on top of that default (for example, your red captions) — it never restores the old canned pack. Previews open first, one Studio tab per video. Files land in `done/` only after "render them", "render 3 and 5", or "render it". Details: `CHANGELOG.md`.
+Every Short and YouTube video starts from real-world UI replicas in a clean layout. Say what to change and it is saved as a preference on top of that default — it never restores the old canned pack. Say "Matthew style" to get your old look (red captions like your old videos) on just that video. Previews open first, one Studio tab per video. Files land in `done/` only after "render them", "render 3 and 5", or "render it". Details: `CHANGELOG.md`.
 
 ### Voice cleanup (2.2.1)
 
