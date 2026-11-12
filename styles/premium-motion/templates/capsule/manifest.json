@@ -1,0 +1,6 @@
+{
+  "name": "capsule",
+  "kind": "captions",
+  "description": "Dark rounded capsule on the seam between the graphic panel and his face. Mixed-case words, restrained highlight on the keyword.",
+  "plan": "a style setting, not a plan entry: \"caption_template\": \"capsule\""
+}

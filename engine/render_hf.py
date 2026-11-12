@@ -173,6 +173,8 @@ def caption_design(tl):
 def write_html(tl, blocks_meta):
     fps, W, H = tl["fps"], tl["width"], tl["height"]
     st = tl["style"]; T = tl["frames"] / fps
+    frame_split = str(st.get("frame_layout") or "").strip().lower() in {"split", "panel", "top-panel"}
+    panel_color = st.get("panel_color") or "#121417"
     # times are floored to the microsecond: a clip shows while start <= t < start + duration, and a rounded-up start
     # leaves one frame where neither neighbour shows (a black frame at the cut)
     t = lambda fr: math.floor(fr / fps * 1e6) / 1e6
@@ -192,14 +194,26 @@ def write_html(tl, blocks_meta):
         for f, v in enumerate(curve):
             js.append(f'tl.set("{sel}", {{scale: {v}, opacity: {1 if v > 0 else 0}}}, {jt(start + f)});')
 
-    # camera: muted pieces of his clip, each cropped to its output-shaped window (punch-ins are tighter windows)
-    for i, p in enumerate(tl["camera"]):
-        n = p["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)   # one frame under the next piece: never a gap
-        body.append(framed(f"cam{i}", p["src"], p["start"], n, p["src_frame"], p["crop"], tl["src_w"], tl["src_h"], 1))
-        if p.get("drift"):
-            x, y, w, h = p["crop"]; k = W / w
-            js.append(f'tl.fromTo("#cam{i}", {{scale: 1}}, {{scale: {1 + p["drift"]}, duration: {p["frames"] / fps:.4f}, ease: "none", '
-                      f'transformOrigin: "{x * k + W / 2:.1f}px {y * k + H / 2:.1f}px"}}, {jt(p["start"])});')
+    # camera: muted pieces of his clip, each cropped to its output-shaped window (punch-ins are tighter windows).
+    # frame_layout=split: reserve the top half for graphics (opaque panel) and put his face in the bottom half,
+    # the same box the kit already uses for b-roll layout=split.
+    if frame_split:
+        body.append(f'<div id="graphic-panel" style="position:absolute;left:0;top:0;width:{W}px;height:{H // 2}px;'
+                    f'background:{panel_color}"></div>')
+        head = (f"left:0;top:{H // 2}px;width:{W}px;height:{H - H // 2}px;object-fit:cover;object-position:50% 28%")
+        for i, p_ in enumerate(tl["camera"]):
+            n = p_["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)
+            body.append(f'<video id="cam{i}" src="assets/{p_["src"]}" muted playsinline {span(p_["start"], n)} '
+                        f'data-media-start="{s(p_["src_frame"])}" data-track-index="1" '
+                        f'style="position:absolute;{head}"></video>')
+    else:
+        for i, p in enumerate(tl["camera"]):
+            n = p["frames"] + (1 if i < len(tl["camera"]) - 1 else 0)   # one frame under the next piece: never a gap
+            body.append(framed(f"cam{i}", p["src"], p["start"], n, p["src_frame"], p["crop"], tl["src_w"], tl["src_h"], 1))
+            if p.get("drift"):
+                x, y, w, h = p["crop"]; k = W / w
+                js.append(f'tl.fromTo("#cam{i}", {{scale: 1}}, {{scale: {1 + p["drift"]}, duration: {p["frames"] / fps:.4f}, ease: "none", '
+                          f'transformOrigin: "{x * k + W / 2:.1f}px {y * k + H / 2:.1f}px"}}, {jt(p["start"])});')
 
     # b-roll: muted, over the camera. full = the whole frame (cropped to the output shape); pip = full frame with his face
     # in a corner box (screen recordings on long-form); split = b-roll on top, his face on the bottom half (vertical)
@@ -251,7 +265,8 @@ def write_html(tl, blocks_meta):
                     js.append(f'tl.fromTo("#{wid}", {{scale: {1 + kpop:g}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, ease: "none"}}, {jt(w["at"])});')
             lines.append("<div>" + " ".join(ws) + "</div>")
         px = c["size"] * st.get("font_css_scale", 0.82)
-        seam = f' style="top:{H / 2:.0f}px"' if any(c["start"] < b and c["end"] > a for a, b in seams) else ""
+        on_seam = frame_split or any(c["start"] < b and c["end"] > a for a, b in seams)
+        seam = f' style="top:{H / 2:.0f}px"' if on_seam else ""
         caps_html.append(f'<div id="cap{i}" class="clip" {span(c["start"], max(1, c["end"] - c["start"]))} '
                     f'data-track-index="2"><div class="cap"{seam}><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
                     f'line-height:{c["size"]:.2f}px">{"".join(lines)}</div></div></div>')
@@ -288,14 +303,18 @@ def write_html(tl, blocks_meta):
     for i, b in enumerate(tl.get("blocks") or []):
         m = blocks_meta[b["name"]]
         n = min(b["frames"], int(m["dur"] * fps))
-        x, y, w, h = b.get("box") or [0, 0, W, H]
+        default_box = [0, 0, W, H // 2] if frame_split else [0, 0, W, H]
+        x, y, w, h = b.get("box") or default_box
         k = min(w / m["w"], h / m["h"])   # the block keeps its own canvas, scaled to fit the box and centred in it
         x, y = x + (w - m["w"] * k) / 2, y + (h - m["h"] * k) / 2
         vv = f" data-variable-values='{html.escape(json.dumps(b['vars']), quote=True)}'" if b.get("vars") else ""
+        # a graphic that fills the reserved top panel stays square-cornered, like a real screen
+        fills_panel = frame_split and b.get("box") in (None, default_box, [0, 0, W, H // 2])
+        radius = 0 if fills_panel else (round(28 / k) if k < 1 else 0)
         body.append(f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="compositions/{b["name"]}.html" '
                     f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{m["w"]}" data-height="{m["h"]}"{vv} '
                     f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{m["w"]}px;height:{m["h"]}px;'
-                    f'transform-origin:0 0;transform:scale({k:.5f});overflow:hidden;border-radius:{round(28 / k) if k < 1 else 0}px"></div>')
+                    f'transform-origin:0 0;transform:scale({k:.5f});overflow:hidden;border-radius:{radius}px"></div>')
 
     body += caps_html
     margin = round(W * 0.06)

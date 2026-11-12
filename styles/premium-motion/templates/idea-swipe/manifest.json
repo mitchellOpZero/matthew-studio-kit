@@ -1,0 +1,5 @@
+{
+  "name": "idea-swipe",
+  "description": "A one-word diagonal swipe that covers the frame and clears, for the turn in the edit.",
+  "plan": "blocks: {\"name\": \"idea-swipe\", \"at\": s, \"dur\": 0.85, \"vars\": {\"word\": \"TURN\"}}"
+}

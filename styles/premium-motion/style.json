@@ -1,0 +1,57 @@
+{
+  "_about": "Creative style for a vertical Short: a reserved top graphic panel, talking head below, captions in a capsule on the seam. Graphics are high-fidelity replicas of real things mentioned in the transcript (a real Google results page, a real ChatGPT window, etc.), not a fixed template stack.",
+  "font": "Outfit",
+  "font_file": "Outfit-Bold.ttf",
+  "font_size_frac": 0.042,
+  "color": "#F3F4F6",
+  "highlight_color": "#8AB4F8",
+  "stroke_color": "#121417",
+  "stroke": 0,
+  "shadow": 0,
+  "center_y_frac": 0.5,
+  "uppercase": false,
+  "one_line": true,
+  "max_words": 4,
+  "max_chars": 24,
+  "min_chunk_s": 0.28,
+  "gap_break_s": 0.35,
+  "kw_sync_pop": true,
+  "kw_pop_pct": 8,
+  "keyword_scale": 1.08,
+  "pop_scale": 1.0,
+  "pop_ms": 280,
+  "caption_template": "capsule",
+  "punch": {
+    "every_s": 2.2,
+    "zoom_wide": 1.0,
+    "zoom_tight": 1.06,
+    "even": true,
+    "max_s": 2.2,
+    "anchor_y": 0.32,
+    "min_piece_s": 0.55
+  },
+  "xfade_ms": 12,
+  "end_fade_s": 0.2,
+  "loudness": {
+    "I": -14,
+    "TP": -1.5,
+    "LRA": 11
+  },
+  "logos": {
+    "enabled": false,
+    "youtube": "assets/logos/youtube_icon_red.png",
+    "instagram": "assets/logos/Instagram_Glyph_Gradient.png"
+  },
+  "music": {
+    "enabled": false
+  },
+  "sfx_on_graphics": false,
+  "graphic": {
+    "size_frac": 0.048,
+    "y_frac": 0.14,
+    "box_color": "#141210",
+    "text_color": "#F6F1E8"
+  },
+  "frame_layout": "split",
+  "panel_color": "#121417"
+}
