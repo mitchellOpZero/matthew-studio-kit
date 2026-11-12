@@ -1,0 +1,56 @@
+<template>
+<div id="cut-purpose" data-composition-id="cut-purpose" data-width="1080" data-height="870" data-duration="4.3" data-layout-allow-overflow data-layout-allow-overlap>
+  <style>
+    @font-face{font-family:DemoOutfit;src:url("assets/demo-outfit.ttf");font-display:block}
+    #cut-purpose {position:relative; width:1080px;height:870px;overflow:hidden;font-family:DemoOutfit,Arial,sans-serif;color:#f6f2e3}
+    #cut-purpose .shot {position:absolute;inset:0;overflow:hidden}
+    #cut-purpose .eyebrow {position:absolute;left:92px;top:77px;color:#c8ff54;font-size:30px;letter-spacing:8px}
+    #cut-purpose .headline {position:absolute;left:86px;top:215px;font-size:146px;line-height:.91;letter-spacing:-7px}
+    #cut-purpose .subtitle {position:absolute;left:95px;top:646px;font-size:34px;letter-spacing:4px;color:#dfd9f3}
+    #cut-purpose .rule {position:absolute;left:92px;top:713px;height:6px;width:890px;background:#c8ff54;transform-origin:left}
+    #cut-purpose .focus {position:absolute;width:230px;height:230px;right:75px;top:149px;border-top:9px solid #c8ff54;border-right:9px solid #c8ff54;transform-origin:center}
+    #cut-purpose .arc {position:absolute;right:90px;top:140px;width:540px;height:540px;border:4px solid #98a7ff;border-radius:50%;opacity:.7}
+    #cut-purpose .arc.a2 {right:137px;top:187px;width:446px;height:446px;opacity:.4}
+    #cut-purpose .arc.a3 {right:183px;top:233px;width:354px;height:354px;opacity:.3}
+    #cut-purpose .slab {position:absolute;right:30px;top:184px;width:485px;height:435px;background:#464fe0;transform-origin:center}
+    #cut-purpose .slash {position:absolute;right:185px;top:118px;width:15px;height:590px;background:#c8ff54;transform-origin:center}
+    #cut-purpose .shot:nth-of-type(n+2){opacity:0}
+  </style>
+  <div id="cp-one" class="shot">
+    <div id="cp-focus" class="focus"></div>
+    <div class="eyebrow">01 / FOCUS</div>
+    <div id="cp-copy1" class="headline">ONE<br>IDEA.</div>
+    <div class="subtitle">CLEAR BEFORE CLEVER</div>
+    <div id="cp-rule" class="rule"></div>
+  </div>
+  <div id="cp-beat" class="shot">
+    <div class="arc a1"></div><div class="arc a2"></div><div class="arc a3"></div>
+    <div class="eyebrow">02 / RHYTHM</div>
+    <div id="cp-copy2" class="headline">GIVE IT<br>A BEAT.</div>
+    <div class="subtitle">LET THE MOMENT LAND</div>
+  </div>
+  <div id="cp-cut" class="shot">
+    <div id="cp-slab" class="slab"></div><div id="cp-slash" class="slash"></div>
+    <div class="eyebrow">03 / MOVEMENT</div>
+    <div id="cp-copy3" class="headline">CUT ON<br>THE MOVE.</div>
+    <div class="subtitle">FOLLOW THE STORY</div>
+  </div>
+  <script>
+  (() => {
+    const t=gsap.timeline({paused:true});
+    t.fromTo("#cp-rule",{scaleX:.16},{scaleX:1,duration:.52,ease:"power3.out"},0);
+    t.fromTo("#cp-focus",{x:42,y:-26,opacity:.35},{x:0,y:0,opacity:1,duration:.6,ease:"power2.out"},0);
+    t.fromTo("#cp-copy1",{y:19},{y:0,duration:.35,ease:"power2.out"},0);
+    t.set("#cp-one",{opacity:0},2.03).set("#cp-beat",{opacity:1},2.03);
+    t.fromTo("#cp-beat .arc",{scale:.75,opacity:.3},{scale:1,opacity:.78,duration:.55,stagger:.055,ease:"power3.out"},2.04);
+    t.fromTo("#cp-copy2",{x:35,opacity:.25},{x:0,opacity:1,duration:.30,ease:"power3.out"},2.04);
+    t.set("#cp-beat",{opacity:0},3.04).set("#cp-cut",{opacity:1},3.04);
+    t.fromTo("#cp-slab",{x:286,rotation:-8},{x:0,rotation:-15,duration:.39,ease:"power3.out"},3.04);
+    t.fromTo("#cp-slash",{scaleY:.05,rotation:38},{scaleY:1,rotation:38,duration:.32,ease:"power2.out"},3.09);
+    t.fromTo("#cp-copy3",{x:-28,opacity:.3},{x:0,opacity:1,duration:.34,ease:"power3.out"},3.05);
+    t.set("#cp-cut",{opacity:1},4.29);
+    (window.__timelines ||= {})["cut-purpose"]=t;
+  })();
+  </script>
+</div>
+</template>
