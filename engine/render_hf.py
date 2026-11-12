@@ -27,12 +27,19 @@ CARD_POP = [0.0, 0.7, 0.9, 1.04, 1.1, 1.06, 1.02, 1.0]     # picture card and te
 MARK = ".kit-generated"                                    # hash of the index.html the kit wrote
 
 
+def _vkey(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v).split("-")[0])[:3])
+
+
 def hf_version():
+    """The tested floor, or a newer same-line version engine/deps.py switched in. A leftover from an older line
+    (an 0.8.x left in .cache after the kit moved to 0.9) is ignored, so a kit update always gets the new HyperFrames."""
     if os.environ.get("KIT_HF_VERSION"): return os.environ["KIT_HF_VERSION"]
-    for p in (LIVE, FLOOR):
-        try: return json.load(open(p))["version"]
-        except Exception: pass
-    return "0.8.214"
+    try: floor = json.load(open(FLOOR))["version"]
+    except Exception: floor = "0.9.39"
+    try: live = json.load(open(LIVE))["version"]
+    except Exception: return floor
+    return live if _vkey(live)[:2] == _vkey(floor)[:2] and _vkey(live) > _vkey(floor) else floor
 
 
 def hf():
@@ -69,6 +76,13 @@ def env():
             e["HOME"] = os.path.join(KIT, ".cache", "home"); os.makedirs(e["HOME"], exist_ok=True)
         _ENV = e
     return dict(_ENV)
+
+
+def at(proj):
+    """Environment for a HyperFrames call about one project. HyperFrames names the Studio project from $PWD, not the
+    process's working folder, so a stale $PWD (the folder the agent's shell was in) showed the wrong project name."""
+    e = env(); e["PWD"] = os.path.abspath(proj)
+    return e
 
 
 def project_dir(job_name):
@@ -125,29 +139,52 @@ def install_block(name, proj, style_name=""):
         shutil.copy2(os.path.join(own, f"{name}.html"), os.path.join(proj, "compositions", f"{name}.html"))
         if os.path.isdir(os.path.join(own, "assets")):
             shutil.copytree(os.path.join(own, "assets"), os.path.join(proj, "assets"), dirs_exist_ok=True)
-        src = open(os.path.join(own, f"{name}.html")).read()
-        get = lambda a, d: (re.search(rf'{a}="([^"]+)"', src) or [None, d])[1]
-        return {"id": get("data-composition-id", name), "w": int(float(get("data-width", 1080))),
-                "h": int(float(get("data-height", 1920))), "dur": float(get("data-duration", 9999))}
+        return dict(block_meta(os.path.join(own, f"{name}.html"), name), src=f"compositions/{name}.html")
     cache = os.path.join(BLOCKS, name)
-    if not os.path.exists(os.path.join(cache, "compositions", f"{name}.html")):
-        tmp = cache + ".tmp"; shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
-        json.dump({"paths": {"blocks": "compositions", "components": "compositions/components", "assets": "assets"}},
-                  open(os.path.join(tmp, "hyperframes.json"), "w"))
-        r = subprocess.run(hf() + ["add", name, "--json", "--no-clipboard"], cwd=tmp, env=env(), capture_output=True, text=True, timeout=300)
-        if r.returncode or not os.path.exists(os.path.join(tmp, "compositions", f"{name}.html")):
-            qe.die(f"couldn't get library block {name!r} (is the name right? `bin/kit blocks search <words>`): {(r.stdout + r.stderr)[-400:]}")
-        for f in ("hyperframes.json", "hyperframes.lock.json", "TEMPLATE.md"):
-            if os.path.exists(os.path.join(tmp, f)): os.remove(os.path.join(tmp, f))
-        shutil.rmtree(cache, ignore_errors=True); os.replace(tmp, cache)
+    if not library_file(cache, name):
+        fetch_block(name)
     for f in glob.glob(os.path.join(cache, "**", "*"), recursive=True):
         if os.path.isfile(f):
             dst = os.path.join(proj, os.path.relpath(f, cache))
             if not os.path.exists(dst): os.makedirs(os.path.dirname(dst), exist_ok=True); shutil.copy2(f, dst)
-    src = open(os.path.join(cache, "compositions", f"{name}.html")).read()
+    return block_meta(library_file(cache, name), name)
+
+
+def library_file(cache, name):
+    """Where `hyperframes add` put it: compositions/<name>.html (a block) or compositions/components/<name>.html."""
+    for rel in (os.path.join("compositions", f"{name}.html"), os.path.join("compositions", "components", f"{name}.html")):
+        if os.path.exists(os.path.join(cache, rel)): return os.path.join(cache, rel)
+    return None
+
+
+def fetch_block(name):
+    """The supported registry intake: `hyperframes add <name> --json --no-clipboard` into a staging folder, kept in
+    .cache/blocks/<name>/ and reused offline from then on. Blocks and components both work. Returns the cache folder."""
+    cache = os.path.join(BLOCKS, name)
+    tmp = cache + ".tmp"; shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
+    json.dump({"paths": {"blocks": "compositions", "components": "compositions/components", "assets": "assets"}},
+              open(os.path.join(tmp, "hyperframes.json"), "w"))
+    e = at(tmp); e.pop("npm_config_prefer_offline", None)   # a new block has to come from the registry
+    r = subprocess.run(hf() + ["add", name, "--dir", tmp, "--json", "--no-clipboard"], cwd=tmp, env=e,
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode or not library_file(tmp, name):
+        shutil.rmtree(tmp, ignore_errors=True)
+        qe.die(f"couldn't get library block {name!r} (is the name right? `bin/kit blocks search <words>`): {(r.stdout + r.stderr)[-400:]}")
+    for f in ("hyperframes.json", "hyperframes.lock.json", "TEMPLATE.md"):
+        if os.path.exists(os.path.join(tmp, f)): os.remove(os.path.join(tmp, f))
+    shutil.rmtree(cache, ignore_errors=True); os.replace(tmp, cache)
+    return cache
+
+
+def block_meta(path, name):
+    """{id, w, h, dur, src, fluid}. A component has no data-width/height: it fills whatever box it's mounted in."""
+    src = open(path).read()
     get = lambda a, d: (re.search(rf'{a}="([^"]+)"', src) or [None, d])[1]
-    return {"id": get("data-composition-id", name), "w": int(float(get("data-width", 1080))),
-            "h": int(float(get("data-height", 1920))), "dur": float(get("data-duration", 9999))}
+    fluid = re.search(r'data-width="', src) is None
+    rel = "compositions/" + ("components/" if os.sep + "components" + os.sep in path else "") + f"{name}.html"
+    dur = get("data-duration", None) or get("data-composition-duration", 9999)
+    return {"id": get("data-composition-id", name), "w": int(float(get("data-width", 1080))), "h": int(float(get("data-height", 1920))),
+            "dur": float(dur), "src": rel, "fluid": fluid}
 
 
 # ---------------------------------------------------------------- caption designs
@@ -305,15 +342,18 @@ def write_html(tl, blocks_meta):
         n = min(b["frames"], int(m["dur"] * fps))
         default_box = [0, 0, W, H // 2] if frame_split else [0, 0, W, H]
         x, y, w, h = b.get("box") or default_box
-        k = min(w / m["w"], h / m["h"])   # the block keeps its own canvas, scaled to fit the box and centred in it
-        x, y = x + (w - m["w"] * k) / 2, y + (h - m["h"] * k) / 2
+        if m.get("fluid"):   # a component fills the box it's given, at full resolution
+            mw, mh, k = round(w), round(h), 1.0
+        else:                # a block keeps its own canvas, scaled to fit the box and centred in it
+            mw, mh = m["w"], m["h"]; k = min(w / mw, h / mh)
+            x, y = x + (w - mw * k) / 2, y + (h - mh * k) / 2
         vv = f" data-variable-values='{html.escape(json.dumps(b['vars']), quote=True)}'" if b.get("vars") else ""
         # a graphic that fills the reserved top panel stays square-cornered, like a real screen
         fills_panel = frame_split and b.get("box") in (None, default_box, [0, 0, W, H // 2])
         radius = 0 if fills_panel else (round(28 / k) if k < 1 else 0)
-        body.append(f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="compositions/{b["name"]}.html" '
-                    f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{m["w"]}" data-height="{m["h"]}"{vv} '
-                    f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{m["w"]}px;height:{m["h"]}px;'
+        body.append(f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="{m.get("src") or f"compositions/{b['name']}.html"}" '
+                    f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{mw}" data-height="{mh}"{vv} '
+                    f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{mw}px;height:{mh}px;'
                     f'transform-origin:0 0;transform:scale({k:.5f});overflow:hidden;border-radius:{radius}px"></div>')
 
     body += caps_html
@@ -405,7 +445,7 @@ def check(proj):
     Its contrast test ignores the caption outline and depends on what happens to be behind the word in the sampled
     frames, so it would block his approved keyword colour on one clip and pass it on the next. The colour is the style's
     call (skills/style: look at the still)."""
-    r = subprocess.run(hf() + ["check", "--json", proj], capture_output=True, text=True, env=env())
+    r = subprocess.run(hf() + ["check", "--json", os.path.abspath(proj)], cwd=proj, capture_output=True, text=True, env=at(proj))
     try:
         d = json.loads(r.stdout)
     except ValueError:
@@ -434,7 +474,7 @@ def check(proj):
 
 def running(proj):
     """The Studio URL of this project's preview server if one is already up, else None."""
-    r = subprocess.run(hf() + ["preview", "--status", "--json"], cwd=proj, env=env(), capture_output=True, text=True, timeout=60)
+    r = subprocess.run(hf() + ["preview", "--status", "--json", os.path.abspath(proj)], cwd=proj, env=at(proj), capture_output=True, text=True, timeout=60)
     try:
         res = json.loads(r.stdout)["result"]
         return res["studioUrl"].replace("127.0.0.1", "localhost") if res.get("state") == "running" and res.get("ready") else None
@@ -457,7 +497,7 @@ def preview(proj, port):
     url = running(proj)
     if url: return url, False
     port = free_port(port)
-    r = subprocess.run(hf() + ["preview", "--background", "--no-open", "--port", str(port)], cwd=proj, env=env(),
+    r = subprocess.run(hf() + ["preview", "--background", "--no-open", "--port", str(port), os.path.abspath(proj)], cwd=proj, env=at(proj),
                        capture_output=True, text=True, timeout=180)
     for _ in range(60):   # only HyperFrames' own word that THIS project is up counts (a busy port can answer for another)
         url = running(proj)
@@ -467,7 +507,7 @@ def preview(proj, port):
 
 
 def stop(proj):
-    subprocess.run(hf() + ["preview", "--stop"], cwd=proj, env=env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(hf() + ["preview", "--stop", os.path.abspath(proj)], cwd=proj, env=at(proj), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def render(proj, out_mp4):
@@ -477,7 +517,7 @@ def render(proj, out_mp4):
     if code: qe.die("hyperframes check failed:\n" + log[-3000:])
     os.makedirs(os.path.dirname(out_mp4), exist_ok=True)
     t1 = time.time()
-    r = subprocess.run(hf() + ["render", proj, "--output", out_mp4], env=env(), capture_output=True, text=True)
+    r = subprocess.run(hf() + ["render", os.path.abspath(proj), "--output", out_mp4], cwd=proj, env=at(proj), capture_output=True, text=True)
     if r.returncode or not os.path.exists(out_mp4): qe.die("HyperFrames render failed:\n" + (r.stdout + r.stderr)[-3000:])
     t2 = time.time()
     tl = json.load(open(os.path.join(proj, "timeline.json")))
@@ -494,10 +534,10 @@ def render(proj, out_mp4):
     return out_mp4
 
 
-def snapshot(proj, at):
+def snapshot(proj, times):
     """Still frames of the project (no render): [png paths]."""
     t0 = time.time()
-    r = subprocess.run(hf() + ["snapshot", "--at", ",".join(f"{x:.2f}" for x in at)], cwd=proj, env=env(), capture_output=True, text=True, timeout=300)
+    r = subprocess.run(hf() + ["snapshot", "--no-end", "--at", ",".join(f"{x:.2f}" for x in times), os.path.abspath(proj)], cwd=proj, env=at(proj), capture_output=True, text=True, timeout=300)
     found = list(dict.fromkeys(m.strip() for m in re.findall(r"(/[^\n]*?/snapshots/[^\n]*?/frame-\d+[^\n]*?\.png)", r.stdout + r.stderr)))
     if found and all(os.path.exists(f) for f in found):
         return found

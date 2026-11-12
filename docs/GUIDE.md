@@ -46,7 +46,7 @@ Say **"send it to CapCut"**. Codex renders the edit if it isn't yet, then makes 
 
 ## Graphics
 The default look already builds real-looking graphics of the things you mention (a Google results page, a ChatGPT window, and so on).
-There are also about 200 ready-made animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one
+Codex checks the HyperFrames library first (about 450 ready-made pieces: app and chat mock-ups, match cuts, charts) and uses one when it looks right. Ask for one
 ("show this as a text conversation", "a list of the 3 steps") and Codex finds and places it. Anything that doesn't
 exist yet, Codex builds for this video.
 
