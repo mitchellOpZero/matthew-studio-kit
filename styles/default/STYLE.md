@@ -2,7 +2,7 @@
 
 The kit's default look for every Short. Saved preferences (for example his red captions) only refine it; they never swap in a canned pack.
 
-Vertical (9:16) with a fixed frame: a reserved graphic panel in the **top half**, his talking head in the **bottom half**, and captions in a dark capsule sitting on the **seam** between them. The kit applies this when `frame_layout` is `split` (do not fight it in `index.html` unless a single graphic needs a tweak). His face stays in the lower half and is never covered.
+Vertical (9:16) with a fixed frame: a reserved graphic panel in the **top half**, his talking head in the **bottom half**, and captions in a dark capsule sitting on the **seam** between them. The kit applies this when `frame_layout` is `split` and the video has at least one graphic (do not fight it in `index.html` unless a single graphic needs a tweak). His face stays in the lower half and is never covered. A Short with no graphics gets his face full frame instead of an empty top half, with captions at `full_center_y_frac` (0.7).
 
 The motion graphics are not a template pack. They are high-fidelity replicas of real things he mentions, drawn as HyperFrames HTML/GSAP compositions, and they should look like a real screen — not a sticker, card, or typographic sting.
 

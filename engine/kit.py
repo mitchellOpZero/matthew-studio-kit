@@ -20,7 +20,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit style sheet <reel.mp4>                   a contact sheet of a reference reel (.work/_refs/) to build a style from
   kit style import <old kit folder>            copy his saved styles from the old Matthew Edit Kit
   kit graphics list | test <graphic>           the kit's own graphics (logo pop, picture card, text card)
-  kit blocks search <words> | test <name>      HyperFrames library blocks (about 200: chat and app mock-ups, charts, titles ...)
+  kit blocks search <words> | add <name> | test <name>   HyperFrames library (about 450 blocks and components)
   kit library list [<words>] [--type t]        local files in library/ (b-roll, pictures, sound effects)
   kit library add <file> --type broll|picture|sfx --name <name> [--tags a,b]
   kit library find <words> [--kind ...] [--origin ai|stock] [--aspect vertical|horizontal|square]
@@ -275,6 +275,7 @@ def cmd_update(a) -> int:
     deps.floor()
     deps.check(now=True)
     deps.apply()
+    cmd_prepare(a)   # a release on a new HyperFrames line: fetch it and its Chrome now, not in the middle of an edit
     print(f"matthew-studio-kit {kit_version()}")
     return 0
 
@@ -1206,7 +1207,7 @@ def cmd_graphics(a) -> int:
         for p in sorted(GRAPHICS.glob("*/manifest.json")):
             m = json.load(open(p))
             print(f"{p.parent.name}: {m.get('description', '')}  plan: {m.get('plan', '')}")
-        print("More: about 200 HyperFrames library blocks (kit blocks search <words>).")
+        print("More: about 450 HyperFrames library blocks and components (kit blocks search <words>).")
         return 0
     if not a.name:
         die("name a graphic, e.g. kit graphics test picture")
@@ -1222,16 +1223,26 @@ def cmd_graphics(a) -> int:
 
 def cmd_blocks(a) -> int:
     hfr = hfm()
-    if a.action == "search":
-        r = subprocess.run(hfr.hf() + ["catalog", *a.words, "--type", "block", "--json"], capture_output=True, text=True, env=hfr.env(), timeout=300)
+    if a.action == "search":   # the whole HyperFrames registry: blocks (full scenes) and components (pieces)
+        r = subprocess.run(hfr.hf() + ["catalog", *a.words, "--json"], capture_output=True, text=True, env=hfr.env(), timeout=300)
         try:
-            res = json.loads(r.stdout).get("results", [])
+            d = json.loads(r.stdout)
+            res = d.get("results", []) if isinstance(d, dict) else d
         except json.JSONDecodeError:
             die(f"search failed: {(r.stdout + r.stderr)[-400:]}")
         for it in res:
-            print(f"{it['name']}: {it.get('title', '')}. {it.get('description', '')[:160]}  [{', '.join(it.get('tags', [])[:4])}]")
+            print(f"{it['name']} ({it.get('type', 'block')}): {it.get('title', '')}. {it.get('description', '')[:160]}  [{', '.join(it.get('tags', [])[:4])}]")
         if not res:
             print("nothing matched; try other words")
+        return 0
+    if a.action == "add":      # registry intake: download into .cache/blocks/<name>/ once, reused offline after that
+        if not a.words:
+            die("name one, e.g. kit blocks add type-match-cut")
+        for name in a.words:
+            cache = hfr.fetch_block(name)
+            m = hfr.block_meta(hfr.library_file(cache, name), name)
+            size = "fills its box" if m["fluid"] else f"{m['w']}x{m['h']}"
+            print(f"added {name}: {m['src']} ({size}, {m['dur']:g} s). Try it: kit blocks test {name}")
         return 0
     if not a.words:
         die("name a block, e.g. kit blocks test ai-chat-reveal")
@@ -1301,7 +1312,7 @@ def main() -> int:
     s.add_argument("name", nargs="?"); s.add_argument("pairs", nargs="*"); s.add_argument("--as", dest="as_name"); s.add_argument("--clip")
     s.add_argument("--from", dest="base")
     g = sp.add_parser("graphics"); g.add_argument("action", choices=["list", "test"]); g.add_argument("name", nargs="?"); g.add_argument("--clip")
-    b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
+    b = sp.add_parser("blocks"); b.add_argument("action", choices=["search", "add", "test"]); b.add_argument("words", nargs="*"); b.add_argument("--clip"); b.add_argument("--style")
     lb = sp.add_parser("library")
     lb.add_argument("action", choices=["list", "add", "sync", "connect", "setup", "detect", "plan", "index", "attach", "find", "override", "workflow", "sort", "upload"])
     lb.add_argument("args", nargs="*")

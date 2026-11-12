@@ -33,7 +33,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.3.4**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2, 2.3.3. See `CHANGELOG.md`.
+- `bin/kit version` shows the version and exact commit. This release is **2.3.5**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2, 2.3.3, 2.3.4. See `CHANGELOG.md`.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
@@ -70,7 +70,7 @@ One fixed pipeline:
 5. **QA**.
 
 - Look: the default real-world graphics, plus any saved preferences in `my-styles/preferences.json`.
-- Graphics: the kit's own (`graphics/`), custom compositions for this video, and about 200 HyperFrames library blocks (`bin/kit blocks search`).
+- Graphics: the kit's own (`graphics/`), custom compositions for this video, and about 450 HyperFrames library blocks and components (`bin/kit blocks search`, `bin/kit blocks add`).
 - Library: `library/` (b-roll, pictures, sound effects), indexed from the Notion Content page you already have (`docs/NOTION-MCP.md`, `skills/library`). Codex can upload a b-roll clip, picture, or style, and title and tag reviewed B-roll, only on that page.
 
 Replaces the Remotion-based Matthew Edit Kit (1.x), which still works on its own if you need it.

@@ -230,6 +230,7 @@ def build(edl_path, full=True):
                "vars": b.get("vars") or {}, "box": b.get("box")} for b in edl.get("blocks") or []]
 
     dlg = dialogue(edl, edl_dir, src, pieces, st, total)
+    st, layout_note = frame_layout(edl, st, blocks, ovs, gfx)
 
     style = {k: v for k, v in st.items() if not k.startswith("_")}
     style["font_css_scale"] = font_scale(st)
@@ -240,8 +241,23 @@ def build(edl_path, full=True):
           "audio_processing": {"pipeline": audio_clean.VERSION, "cleanup": (edl.get("audio") or {}).get("cleanup", True)},
           "style_name": edl.get("style_name") or "", "style": style, "font": FONT,
           "dialogue": dlg, "camera": cam, "captions": caps, "overlays": ovs, "broll": broll, "sfx": sfx, "graphics": gfx, "blocks": blocks,
-          "caption_place": place}
+          "caption_place": place + layout_note}
     return tl, media
+
+
+SPLIT = {"split", "panel", "top-panel"}
+
+
+def frame_layout(edl, st, blocks, overlays, graphics):
+    """The split frame (graphic panel on top, his face below) only when the video has graphics to put in the panel.
+    A video with none gets his face full frame instead of an empty top half. The plan's own frame_layout always wins."""
+    if str(st.get("frame_layout") or "").strip().lower() not in SPLIT or "frame_layout" in (edl.get("style") or {}):
+        return st, ""
+    if blocks or overlays or graphics:
+        return st, ""
+    st = dict(st); st["frame_layout"] = "full"
+    st["center_y_frac"] = float(st.get("full_center_y_frac", 0.7))
+    return st, "; no graphics, so his face is full frame (no empty top panel)"
 
 
 SAFE_BOTTOM = 0.18   # qa.py --safe-bottom: the Shorts/Reels button zone captions must stay above

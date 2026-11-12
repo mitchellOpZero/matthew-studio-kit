@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.5
+
+- HyperFrames moves from 0.8.214 to 0.9.39 (the current release). A leftover 0.8 copy on his Mac is ignored, so updating the kit always gets the new one.
+- Codex checks the HyperFrames library first (about 450 blocks and components) and uses real pieces when they fit the default look, instead of hand-drawing. New: `bin/kit blocks add <name>` installs one from the library; `bin/kit blocks search` now finds components too (e.g. `type-match-cut`).
+- Studio shows the right project name. It used to take the name of whatever folder Codex's terminal was in.
+- A Short with no graphics shows his face full frame instead of an empty top half. The top panel comes back as soon as there's a graphic.
+
 ## 2.3.4
 
 - "Matthew style" uses his old look (red captions, like his old videos) on that video only. It is never saved, so the next video is back on the default.
