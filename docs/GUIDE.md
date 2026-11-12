@@ -22,7 +22,7 @@ graphics of the things you mention, keeps them off your face, and sets the sound
 ## Change your look
 Just say it, for example:
 - "Make my captions a little smaller."
-- "Make my captions red again."
+- "Do this one in Matthew style." (your old look with red captions, just for that video)
 - "Put the captions a bit lower."
 
 Codex applies the change, saves it so it sticks on future videos, and checks the quality again. The default graphics and layout stay. You can say **"Undo that"** if you want it back.

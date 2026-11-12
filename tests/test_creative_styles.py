@@ -66,8 +66,8 @@ class DefaultStyleTests(unittest.TestCase):
         self.assertNotIn("go crazy", agents.lower())
         self.assertNotIn("premium-motion", agents.lower())
         self.assertIn("2.3.1", (ROOT / "CHANGELOG.md").read_text())
-        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.3")
-        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.3")
+        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.4")
+        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.4")
 
 
 
@@ -95,3 +95,13 @@ class PreferenceOverlayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MatthewStyleByNameTests(unittest.TestCase):
+    def test_matthew_style_is_per_video_and_never_a_saved_preference(self):
+        agents = (ROOT / "AGENTS.md").read_text()
+        style = (ROOT / "skills" / "style" / "SKILL.md").read_text()
+        self.assertIn("that video only and is never saved", agents)
+        self.assertIn("--style matthew", style)
+        self.assertNotIn("make my captions red again", (agents + style).lower())
+        self.assertTrue((ROOT / "styles" / "matthew" / "style.json").is_file())
