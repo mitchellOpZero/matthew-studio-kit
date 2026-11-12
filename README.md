@@ -5,6 +5,8 @@ You watch the whole edit live in HyperFrames Studio before anything renders, cha
 then it renders once and goes through the quality check.
 Default style: **matthew**. That's white captions with your crimson on each keyword as you say it, 1.5x size, one line,
 snap punch-ins, logo pops, and your voice at -14 LUFS. **matthew-long** is the same look for 16:9 YouTube.
+**premium-motion** is the creative look: kinetic type, gold and cream graphics, stats, callouts, and swipes.
+Say "go crazy" and Codex uses it. A plain "make a Short" stays on matthew.
 
 ## Quick start
 1. In Terminal, once (the repo is private; accept Mitchell's GitHub invite first):
@@ -32,7 +34,7 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.2.1**. Older releases: 2.0.0, 2.0.1, 2.0.2.
+- `bin/kit version` shows the version and exact commit. This release is **2.3.0**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1. See `CHANGELOG.md`.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
@@ -42,13 +44,22 @@ bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the ol
 - Your styles live in `my-styles/`, your library in `library/`. Updates never touch them.
 
 ## Use it (just ask Codex)
-- "Edit the clip in inbox with my style." Or "make a 15 second Short from inbox/clip.MP4." You get a Studio link to watch it.
+Codex opens a Studio preview and stops. Nothing is rendered until you say so.
+- "Edit the clip in inbox with my style." Or "make a 15 second Short from inbox/clip.MP4." You get a Studio link.
 - "Make a long-form video from the clip in inbox." 16:9, with screen recordings, b-roll, pictures and graphics.
-- "$episode": edits every clip in `inbox/`, opens them all in Studio, then renders the ones you approve to `done/`.
-- "Make my captions a bit smaller." Codex asks whether to save over your style or as a new one, then shows a preview. "Undo that" goes back.
+- "$episode" or "edit everything in inbox": every clip opens in its own Studio tab, numbered. About 8 at a time is normal. Nothing renders yet.
+- "On 2, cut the opener." "Video 4, make the stat say 10." That preview updates. The others stay.
+- "Render them." Renders the whole batch into `done/`.
+- "Render 3 and 5." Renders those numbers only.
+- "Render it." Renders the one video you are looking at.
+- "Go crazy." "Be creative." "Make the graphics look cool." Codex uses **premium-motion** (or saves a new style if that look doesn't fit) and the first preview already has kinetic type, callouts, stats, and swipes. Then you change it with notes.
+- "Make a style from this." A reference reel becomes a style, graphics included. It works with the creative look: the reel sets the colours and pacing, and the motion graphics are built into that same style.
+- "Make my captions a bit smaller." Codex asks whether to save over your style or as a new one, then shows a preview. "Undo that" goes back. If Codex invented a style for a video, it tells you the name. Say keep it, tweak it, or delete it.
 - "Refresh my library", "use the Hinge screenshot", "put a chat on screen here".
 - "Sort my Notion": Codex looks at your B-roll and puts searchable titles and tags on the B Roll table in Notion, then tells you what changed.
 - "Upload this Runway clip to my Content page." B-roll sources and the Notion setup are in `docs/NOTION-MCP.md`.
+- "Send it to CapCut." Codex renders that one video, then puts it in CapCut.
+- "Turn on support diagnostics." See `docs/SUPPORT.md`. Letting Mitchell work on this Mac from his computer: `docs/remote-access.md`.
 
 Plain-words guide: `docs/GUIDE.md`.
 
@@ -61,10 +72,14 @@ One fixed pipeline:
 5. **QA**.
 
 - Styles: `styles/<name>/style.json` (+ `STYLE.md`, caption designs and graphics in `templates/`), old versions in `versions/`.
-- Graphics: the kit's own (`graphics/`), about 200 HyperFrames library blocks (`bin/kit blocks search`), and ones built for you.
+- Graphics: the kit's own (`graphics/`), the `premium-motion` compositions, about 200 HyperFrames library blocks (`bin/kit blocks search`), and ones built for a video.
 - Library: `library/` (b-roll, pictures, sound effects), indexed from the Notion Content page you already have (`docs/NOTION-MCP.md`, `skills/library`). Codex can upload a b-roll clip, picture, or style, and title and tag reviewed B-roll, only on that page.
 
 Replaces the Remotion-based Matthew Edit Kit (1.x), which still works on its own if you need it.
+
+### Creative graphics and preview-first batches (2.3.0)
+
+"Go crazy" uses the `premium-motion` style and custom HyperFrames graphics, and Codex may save a new style when none of the current ones fit. It tells you the name. Previews open first, one Studio tab per video. Files land in `done/` only after "render them" or "render 3 and 5". Details: `CHANGELOG.md`.
 
 ### Voice cleanup (2.2.1)
 

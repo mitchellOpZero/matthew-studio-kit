@@ -1,0 +1,5 @@
+{
+  "name": "lower-third",
+  "description": "An editorial lower third: a gold bar, an index, a display name, and a tracked role.",
+  "plan": "blocks: {\"name\": \"lower-third\", \"at\": s, \"dur\": s, \"vars\": {\"index\": \"01\", \"name\": \"MATTHEW\", \"role\": \"DATING COACH\"}}"
+}

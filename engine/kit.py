@@ -10,7 +10,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
   kit draft <clip> [--style matthew] [--long]  make a job folder with a first edit plan (edl.json) + the transcript to review
                                                (--long: a 16:9 long-form edit, style matthew-long unless --style says otherwise)
-  kit preview <job> [<job> ...] [--rebuild]    open each job in HyperFrames Studio (a link per job; open tabs reload on changes)
+  kit preview <job> [<job> ...] [--rebuild]    open each job in its own Studio tab (live; nothing rendered until kit render)
   kit preview --stop                           close the Studio servers
   kit render <job>                             render the job as it stands in Studio, run QA; a PASS goes to done/
   kit qa <video> [--job <job>]                 run the QA gate on a video
@@ -671,7 +671,7 @@ def cmd_preview(a) -> int:
         print(f"{job.name}: {url}  ({status}; {'new Studio tab' if started else 'open tab reloads'})")
         if started and a.open:   # only a brand-new server gets a tab, and only when asked for
             subprocess.call(["open", url])
-    print("Watch and edit in Studio (or each project's index.html). When it looks right: kit render <job>")
+    print("Studio only: nothing is rendered. Notes update the open tab. Render when he says so: kit render <job>")
     return 0
 
 

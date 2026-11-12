@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-composition-variables='[
+  {"id":"word","type":"string","label":"Word","default":"TURN"}
+]'>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="../assets/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Anton"; src: url("../assets/Anton-Regular.ttf"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { background: transparent; overflow: hidden; }
+      body { width: 1080px; height: 1920px; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+      .sw-band {
+        position: absolute;
+        left: -40%;
+        top: 22%;
+        width: 180%;
+        height: 22%;
+        background: #f6f1e8;
+        transform: rotate(-12deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 0 12px #e4b15a;
+      }
+      .sw-word {
+        font-family: "Anton", sans-serif;
+        font-size: 168px;
+        letter-spacing: 0.06em;
+        color: #141210;
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="idea-swipe" data-width="1080" data-height="1920" data-start="0" data-duration="1.05">
+      <div class="clip" data-start="0" data-duration="1.05" data-track-index="0">
+        <div id="sw-band" class="sw-band">
+          <div id="sw-word" class="sw-word" data-var-text="word">TURN</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      var vars = (window.__hyperframes && window.__hyperframes.getVariables) ? (window.__hyperframes.getVariables() || {}) : {};
+      if (vars.word) document.getElementById("sw-word").textContent = vars.word;
+      var tl = gsap.timeline({ paused: true });
+      tl.fromTo("#sw-band", { xPercent: -130 }, { xPercent: 0, duration: 0.38, ease: "power3.out" }, 0);
+      tl.fromTo("#sw-word", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 0.12);
+      tl.to("#sw-band", { xPercent: 130, duration: 0.38, ease: "power3.in" }, 0.58);
+      window.__timelines["idea-swipe"] = tl;
+    </script>
+  </body>
+</html>

@@ -1,11 +1,20 @@
 ---
 name: graphics
-description: "Put graphics on screen: the logo pop, a picture card, a text card, any of about 200 HyperFrames library blocks (chat and app mock-ups, lists, charts, titles, transitions), or a new graphic he asks for. Use for: add a graphic, show a chat/DM, a list on screen, a stat, what graphics do I have, make a new motion graphic."
+description: "Put graphics on screen: the logo pop, a picture card, a text card, any of about 200 HyperFrames library blocks, the premium-motion compositions, or a new GSAP graphic. Use for: add a graphic, show a chat/DM, a list on screen, a stat, go crazy, be creative, make the graphics look cool, make a new motion graphic."
 ---
 
 # Graphics
 
-Three kinds, all drawn by HyperFrames on the same timeline as his video, all visible in Studio before anything renders.
+Three kinds, all drawn by HyperFrames on the same timeline as his video, all visible in Studio before anything renders. Preview only until he says "render them" or "render 3 and 5" (skills/edit-short).
+
+## When he says go crazy
+"Go crazy", "be creative", "be innovative", "make the graphics look cool", or "premium" means the first preview is already designed. Do not stop at logo_pop, picture, text_card, and underline.
+
+1. Use `premium-motion` when this is a vertical talking-head Short and he did not hand you a reference reel. Its STYLE.md says which blocks to place (kinetic label, stat, callout, lower third, swipe) and the words go in `vars`. That is the first preview. He changes it with notes; notes do not render.
+2. Search the library too: `bin/kit blocks search <words>`, then `bin/kit blocks test <name> --style <style>`. Place a block that matches a chat, a list, a chart, or a title. If search fails, carry on. The style's own graphics are enough.
+3. Author a new GSAP/HTML composition when neither the style nor the library covers this video (part 3). Per-video words, timing, and placement go in the plan's `blocks`. Fonts, colours, and motion stay in the HTML.
+4. A reference reel still wins for the look (skills/style). Build the graphics in that new style so the reel's captions and the custom motion live together. Start from `premium-motion` when its type is close.
+5. A plain "make a Short", with no creative ask and no reel, stays on `matthew`. Do not add these graphics.
 
 ## 1. The kit's own graphics
 `bin/kit graphics list`:
@@ -24,8 +33,8 @@ Ready-made animated pieces from HyperFrames: chat and app mock-ups (iMessage-sty
    - Captions stay on top of blocks. On a Short, keep a block out of his face; on long-form, put it on the side he isn't on.
 4. `bin/kit preview <job>` and look.
 
-## 3. A new graphic he asks for
-Build it inside his style (skills/style, "Building something new"), as a block-style HTML file:
+## 3. A new graphic he asks for, or that this video needs
+Build it inside the style for this video (skills/style, "Building something new"), as a block-style HTML file. On a creative ask you do this without waiting for him to name the graphic. The first preview should already include it.
 1. Start from the closest library block (`bin/kit blocks search`), or from scratch. Run `bin/kit style snapshot <style>` first, then put it in `my-styles/<style>/templates/<name>/<name>.html` (a HyperFrames composition: a root `data-composition-id`, `data-width`, `data-height`, `data-duration`, and one paused GSAP timeline registered as `window.__timelines["<id>"]`). Every animation must come from that timeline (no timers, no random values, no network), so every frame renders the same every time.
 2. Use his colours and font: `highlight_color` and `font_file` from his style.json.
    Images it needs go in that folder's `assets/` and are referenced as `assets/<file>`.

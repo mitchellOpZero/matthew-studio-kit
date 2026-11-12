@@ -9,12 +9,12 @@ few one-time steps (installing Homebrew, logging in to GitHub, connecting Notion
    - "Edit the clip in inbox with my style." This cleans up the full clip.
    - "Make a 15 second Short from the clip in inbox." Codex picks the strongest 15 seconds.
    - "Make a long-form video from the clip in inbox." A 16:9 YouTube edit.
-   - "$episode" edits every clip in inbox. Clips it finishes move to `inbox/edited/`, so it never edits them twice.
-3. Codex gives you a **Studio link**. Click it: your edit plays with your voice, captions, zooms and graphics. Nothing
+   - "$episode" edits every clip in inbox and opens each one in its own Studio tab, numbered. Nothing renders yet. After you say "render them", finished clips move to `inbox/edited/`, so the next episode doesn't edit them twice.
+3. Codex gives you a **Studio link** for each video. Click it: the edit plays with your voice, captions, zooms and graphics. Nothing
    has been rendered yet, so changes are instant.
-4. Tell Codex what to change ("cut the first sentence", "make 'confidence' red", "put the Hinge screenshot when I say
-   match"), or change it yourself in Studio: drag, trim, move things. Your hand changes are kept.
-5. Say "looks good" and it renders. About a minute later the finished video is in `done/`, with a QA report beside it.
+4. Tell Codex what to change ("cut the first sentence", "on 2, make the stat say 10", "put the Hinge screenshot when I say
+   match"), or change it yourself in Studio: drag, trim, move things. Your hand changes are kept. The preview updates. Nothing is rendered yet.
+5. When you want the files, say **"render them"** for the whole batch, **"render 3 and 5"** for those numbers, or **"render it"** for the one you are watching. About a minute later each finished video is in `done/`, with a QA report beside it. "Looks good" does not render.
 
 Every edit removes pauses, ums and uhs, and retakes (it keeps your last take). Then it adds your captions, zooms and logo
 pops, keeps captions off your face, and sets the sound level. A video only goes into `done/` after it passes the quality check.
@@ -47,10 +47,22 @@ Codex can add a b-roll clip, a picture, or a style only on that Content page. It
 
 Say **"send it to CapCut"**. Codex renders the edit if it isn't yet, then makes a CapCut project with the whole finished video in it (captions, b-roll and graphics included). Quit and reopen CapCut: the project is in your Projects list, ready to trim, add music or text, or cut up. The kit's captions are part of the video there, so to change a caption, ask Codex to change the edit and send it again.
 
+## A richer look
+Say **"go crazy"**, **"be creative"**, or **"make the graphics look cool."** Codex switches to the premium-motion look
+(kinetic titles, a count-up stat, a sticker callout, a lower third, a swipe) and shows you a preview. A plain
+"make a Short" stays on your usual red captions.
+
+If none of the saved looks fit the footage, Codex may save a new style on its own and tell you the name. Say keep it,
+tweak it, or delete it. Your existing styles are not overwritten.
+
+A reel you like still works. Save the video, drag it in, and say **"make a style from this."** If you also want the
+graphics to go further, say so: Codex copies the reel's look and builds the motion graphics into that same style.
+
 ## Graphics
-"What graphics do I have?" lists the kit's own (logo pop, picture card, text card). There are also about 200 ready-made
-animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one ("show this as a text conversation",
-"a list of the 3 steps") and Codex finds and places it. Anything that doesn't exist yet, Codex builds into your style.
+"What graphics do I have?" lists the kit's own (logo pop, picture card, text card) plus the premium-motion pieces.
+There are also about 200 ready-made animated pieces (chat and app mock-ups, lists, numbers, titles): ask for one
+("show this as a text conversation", "a list of the 3 steps") and Codex finds and places it. Anything that doesn't
+exist yet, Codex builds into the style for this video.
 
 ## If something goes wrong
 - Codex tells you in plain words what failed. A failed video never lands in `done/`.

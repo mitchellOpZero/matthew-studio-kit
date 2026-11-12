@@ -1,0 +1,5 @@
+{
+  "name": "callout",
+  "description": "A tilted sticker callout: a gold mark, a bold line, and a serif detail.",
+  "plan": "blocks: {\"name\": \"callout\", \"at\": s, \"dur\": s, \"vars\": {\"title\": \"STOP SCROLLING\", \"detail\": \"the feed is not the work\"}}"
+}

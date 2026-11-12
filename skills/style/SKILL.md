@@ -18,7 +18,11 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
 
 ## Steps for any change
 1. Understand what he wants. If it's vague ("make it pop more"), make a sensible choice and show him. Don't quiz him.
-2. **Ask before saving:** "Save over **<style>**, or save as a new style? If new, what name?"
+2. **Saving.**
+   - He asked to change a style he already uses ("make my captions smaller"): ask "Save over **<style>**, or save as a new style?" Wait for the answer before writing over it.
+   - A creative ask, or footage that fits none of `matthew`, `matthew-long`, and `premium-motion`: save a new style yourself and use it. `bin/kit style new <clear-name> --from <closest>` (often `premium-motion`). The command refuses a name that already exists, so nothing is overwritten. It lands in `my-styles/`, which updates never touch. Tell him the name in one line, and that he can keep it, tweak it, or delete it. Delete only after he says so (remove `my-styles/<name>/`).
+   - A plain "make a Short" does not get a new style. It stays `matthew`.
+   - Never edit files in `styles/` on his Mac. A later update is a fast-forward pull. `bin/kit style snapshot <name>` copies a built-in style into `my-styles/` before you add a template.
 3. Make the change:
    - **A setting covers it:** `bin/kit style set <style> key=value ... [--as <new-name>]`. The command draws the style on his clip and only saves if it draws cleanly. If it fails, nothing changes.
    - **Nothing covers it:** build it (see "Building something new"). Run `bin/kit style snapshot <style>` before editing files, and for a new style run `bin/kit style new <new-name> --from <style>` first. Afterwards, `bin/kit style test <style>` must print OK. If it doesn't, fix it, or put it back with `bin/kit style undo <style>`.
@@ -88,3 +92,4 @@ Build it inside the style folder. **Never edit `engine/`.** A new piece must pas
    - graphics and B-roll
 3. `bin/kit style new <name> --from matthew`. Set what the settings cover. Build what they don't (above). Write `STYLE.md` describing the look.
 4. Test it, preview it, and show him. If the reel relies on b-roll, pictures or a graphic, find them in his library (skills/library) or the block library (skills/graphics) and say so in STYLE.md.
+5. If the reel is full of motion graphics, or he also said to go crazy, do not stop at caption settings. Build the graphics (skills/graphics) in this same style. `bin/kit style new <name> --from premium-motion` when that kinetic type is close, then restyle colours and fonts to the reel. The reference look and the custom graphics belong together. He reviews it in Studio. Do not render until he says so.

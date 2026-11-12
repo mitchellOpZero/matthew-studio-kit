@@ -1,6 +1,6 @@
 ---
 name: edit-short
-description: "Edit a raw talking-head clip into a finished vertical video in a saved style (default: matthew, his red captions). He watches the whole edit live in Studio before it renders. Use for: edit this clip, cut a Short, make a 15/30 second version, clean up this take, edit the clip in inbox."
+description: "Edit a raw talking-head clip into a vertical video in a saved style (default: matthew, his red captions). Open it in Studio and stop. Render only when he says render it, render them, or render 3 and 5. Use for: edit this clip, cut a Short, make a 15/30 second version, clean up this take, edit the clip in inbox."
 ---
 
 # Edit a clip
@@ -11,6 +11,7 @@ For a 16:9 long-form video, follow skills/long-form instead.
 ## 1. Draft
 `bin/kit draft <clip> --style <style> --name <job>`
 - Style: what he asked for, else `matthew`. List styles: `bin/kit style list`.
+- "Go crazy", "be creative", "be innovative", or "make the graphics look cool": use `premium-motion` when it fits, else a new style you save (skills/style). Follow skills/graphics. Do not keep the matthew basics for that request. A plain "make a Short" stays `matthew`.
 - Job name: short, lowercase, e.g. `coaching-gap-15s`.
 - If it says a job with that name already exists, pick another name. Use `--replace` only when he wants that edit started over (it drops its plan and his hand edits in Studio).
 
@@ -28,11 +29,12 @@ Edit `.work/<job>/edl.json` only.
 - **Keywords** (these words turn crimson as he says them): about one per caption, the word that carries the meaning. Nouns, strong verbs, numbers, brand names. Never: a, the, to, would, might, has, very, more, really, just. Punctuation and capitals do not matter.
 - **Caption breaks** (optional): `caption_breaks` is a list of source start times where a new caption must begin. Use it only when a line still splits a phrase badly. The kit already starts a new caption after a clause (a word ending `.` `!` `?` `,` `;` `:`) and before and, but, so, or, or because, and it does not glue that break back together for being short. A `%` stays on the number before it.
 - **Caption height.** The kit moves captions below his face on its own when his face reaches them (it prints where they went). Set `"caption_y_frac": 0.72` in the plan only if he asks for a different height on this video.
-- **B-roll, pictures, sound effects** from his library (skills/library) and **graphics or library blocks** (skills/graphics), when the style's STYLE.md asks for them or he does. Times in the plan's `overlays`, `broll`, `sfx`, `graphics` and `blocks` are output seconds (after the cuts). The draft already places logo pops.
+- **B-roll, pictures, sound effects** from his library (skills/library) and **graphics or library blocks** (skills/graphics), when the style's STYLE.md asks for them or he does. On a creative ask, `premium-motion`'s STYLE.md is the placement list: put those blocks in the plan so the first preview is already designed. Times in the plan's `overlays`, `broll`, `sfx`, `graphics` and `blocks` are output seconds (after the cuts). The draft already places logo pops.
 - Leave `style_name`, `output` and every look value alone. To change the look, use skills/style, not the plan.
 
-## 4. Preview (he watches it before anything renders)
-`bin/kit preview <job>` prints a Studio link like `http://localhost:3101/#project/<job>`. Give him the link. Studio plays the whole edit with his voice; nothing has been rendered yet.
+## 4. Preview (stop here)
+`bin/kit preview <job>` prints a Studio link like `http://localhost:3101/#project/<job>`. Give him the link. Studio plays the whole edit with his voice. Nothing has been rendered. Do not run `bin/kit render` in this step.
+- **Several videos** (a batch of about 8, "edit these", "$episode"): draft them all, then one `bin/kit preview <job> <job> ...`. Each job gets its own Studio tab. Give him a numbered list, 1 to N, in that same order: the link and one sentence on what you kept. Do not render between videos, and do not wait for an mp4.
 - **Showing it in Codex:** open each job's Studio link once in Codex's browser (one tab per job) and leave those tabs open. They reload by themselves after every change, so never open another tab or another copy for the same job.
 - If he's not watching, look at it yourself first: `kit preview` already ran HyperFrames' own layout check; also read the caption line it printed.
 - **His notes:**
@@ -41,10 +43,15 @@ Edit `.work/<job>/edl.json` only.
   - He can drag, trim and change things by hand in Studio; that lands in the same `index.html`.
   - Once `index.html` has hand edits, a plan change has to go into `index.html` too (the kit keeps hand-edited projects). Ask him before `bin/kit preview <job> --rebuild`, which starts over from the plan.
   - **A look change** (caption size, colour or position, zoom amount, font, how keywords look) is a style change, even mid-review: follow skills/style and **ask first**: "Save over **<style>**, or save as a new style?" Use `bin/kit style set`, never a find-and-replace in `index.html`. Then `bin/kit preview <job> ... --rebuild` so the open tabs show the new look; if any of those projects has hand edits, tell him the rebuild drops them and ask first. Only when he says "just this video" does it go into that video's `index.html`.
-- Keep going until he says it looks right. If he asked you to just finish it, go straight to step 5.
+- Keep going until he is done with notes. "Looks good", "finish it", and "go ahead" do not render. Stop on the preview.
 
-## 5. Render and check
-`bin/kit render <job>`: about 20 s for a 15 s Short and about 1 min for a 60 s edit, plus 20-40 s for QA.
+## 5. Render and check (only when he says so)
+Render only for these phrases:
+- **"render them"** (or "render all", "render these"): every job in the numbered preview list.
+- **"render 3 and 5"** (or "render #3 and #5", "render 3, 5"): those numbers from the list you gave him, and no others.
+- **"render <name>"** or, for a single video, **"render it"**: that job.
+
+`bin/kit render <job>`: about 20 s for a 15 s Short and about 1 min for a 60 s edit, plus 20-40 s for QA. Do not start it before he uses one of those phrases.
 - PASS: the video is in `done/<job>.mp4`. QA notes are in `done/<job>.QA-REPORT.md`.
 - FAIL: read `.work/<job>/out/qa/QA-REPORT.md`. Look at `.work/<job>/out/qa/flags-sheet.jpg`.
   - Missing or clipped word: widen that piece's edge by 0.05-0.1 s.
