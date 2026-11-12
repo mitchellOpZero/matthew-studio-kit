@@ -1,4 +1,4 @@
-# matthew (default)
+# matthew (old style, only when he asks for it by name)
 
 Built from what Matthew asked for: his crimson captions, 1.5x bigger, keywords only; snap punch-ins; the real app logos when he names them; nothing jammed at the top; and "the basics" (no music, no stacked sound effects, no clutter).
 

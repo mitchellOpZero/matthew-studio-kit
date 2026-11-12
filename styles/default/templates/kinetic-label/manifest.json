@@ -1,5 +1,0 @@
-{
-  "name": "kinetic-label",
-  "description": "Oversized kinetic title: a tracked kicker, a letter-staggered headline, a gold rule, and a serif subline.",
-  "plan": "blocks: {\"name\": \"kinetic-label\", \"at\": s, \"dur\": s, \"vars\": {\"kicker\": \"THE REAL\", \"line\": \"GAP\", \"sub\": \"between a like and a date\"}}"
-}
