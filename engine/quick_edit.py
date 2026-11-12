@@ -109,26 +109,34 @@ def _lines(chunk, st):
     return [chunk[i:i + per] for i in range(0, len(chunk), per)]
 
 
-def _fit_one_line(chunk, st, fs, W):
-    """Scale factor so the caption's widest line (at its keyword pop size) fits W minus the 6% margins."""
+def fit_lines(chunk, st, fs, W):
+    """The caption's lines at the video's one caption size: a line too wide for W minus the 6% margins (at its keyword
+    pop size) is broken at the word that best balances it, instead of shrinking that caption. Up to 3 lines."""
+    lines = _lines(chunk, st)
     try:
         from PIL import ImageFont
         font = ImageFont.truetype(_font_path(st), fs)
     except Exception:
-        return 1.0
-    wide = 0.0
-    for line in _lines(chunk, st):
-        text = " ".join((w["w"].upper() if st["uppercase"] else w["w"]) for w in line)
-        grow = max(1 + float(st.get("kw_pop_pct", 14)) / 100.0, float(st.get("keyword_scale", 1.0)))   # keywords drawn bigger
-        wide = max(wide, font.getlength(text) * grow)
+        return lines
+    grow = max(1 + float(st.get("kw_pop_pct", 14)) / 100.0, float(st.get("keyword_scale", 1.0)))
     room = W - 2 * round(W * .06)
-    return min(1.0, room / wide) if wide > 0 else 1.0
+    width = lambda ws: font.getlength(" ".join((w["w"].upper() if st["uppercase"] else w["w"]) for w in ws)) * grow
+    out = []
+    todo = list(lines)
+    while todo:
+        line = todo.pop(0)
+        if len(line) < 2 or width(line) <= room or len(out) + len(todo) >= 2:
+            out.append(line); continue
+        k = min(range(1, len(line)), key=lambda i: max(width(line[:i]), width(line[i:])))
+        todo[:0] = [line[:k], line[k:]]
+    return out
 
 
 def _font_path(st):
-    """A style may ship its own font (styles/<name>/fonts/); else the kit's assets/fonts/."""
+    """A style may ship its own font (styles/<name>/fonts/); else his own fonts (my-styles/fonts/, for a saved
+    preference); else the kit's assets/fonts/."""
     f = st.get("font_file", "Montserrat-ExtraBold.ttf")
-    for d in [os.path.join(st.get("_style_dir", ""), "fonts"), FONTS]:
+    for d in [os.path.join(st.get("_style_dir", ""), "fonts"), os.path.join(KIT, "my-styles", "fonts"), FONTS]:
         if d and os.path.isfile(os.path.join(d, f)): return os.path.join(d, f)
     return os.path.join(FONTS, f)
 
@@ -253,6 +261,7 @@ PREF_KEYS = {
     "font", "font_file", "font_size_frac", "color", "highlight_color", "stroke_color", "stroke", "shadow",
     "center_y_frac", "uppercase", "one_line", "max_words", "max_chars", "min_chunk_s", "gap_break_s",
     "kw_sync_pop", "kw_pop_pct", "keyword_scale", "pop_scale", "pop_ms", "caption_template",
+    "graphic_layout",   # "full": he always wants his face full frame, graphics as overlays or cutaways (never a panel)
 }
 
 

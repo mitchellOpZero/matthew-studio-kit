@@ -22,6 +22,7 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
    - He asked to change the look ("make my captions smaller", "put the captions a bit lower"): apply it as a **preference** on top of the default look, and save it so it sticks. Write caption and similar refinements to `my-styles/preferences.json` (only keys in `engine/quick_edit.py` `PREF_KEYS` — font, colour, caption size, and the like). Never replace the default graphics, layout, or quality gate, and never switch him back to the old canned pack. Do not ask "save over or save as."
    - He asked for "Matthew style", "my old style", or red captions like his old videos: use `--style matthew` for that video only. Do not write it to `preferences.json`; the next video goes back to the default.
    - If he says "copy this reference video," build that look as refinements on top of the same default quality (see "A style from a reference reel" below, phrased plainly to him as copying the reference).
+   - A video's graphics are never a look change: they stay in `.work/<job>/graphics/` (skills/graphics part 3). Do not make a style, a template copy, or a `frame_layout` override for one video; only `bin/kit graphics save` when he asks to keep a graphic.
    - Never edit files in `styles/` on his Mac. A later update is a fast-forward pull. `bin/kit style snapshot <name>` copies a built-in style into `my-styles/` before you add a template.
 3. Make the change:
    - **A setting covers it:** `bin/kit style set <style> key=value ... [--as <new-name>]`. The command draws the style on his clip and only saves if it draws cleanly. If it fails, nothing changes.
@@ -39,8 +40,8 @@ A style is a folder: `styles/<name>/` (built in) or `my-styles/<name>/` (his sav
 Values are JSON: `0.08`, `"#FF0000"`, `true`, `{"color": "#000000", "opacity": 0.7}`. Dotted keys reach inside: `punch.zoom_tight=1.25`.
 - **Caption size and place**
   - `font_size_frac`: share of frame height. 0.093 is his 1.5x size.
-  - `center_y_frac`: 0.64 is chest level.
-  - `one_line`: shrink a line to fit instead of wrapping.
+  - `center_y_frac`: caption height, the same all video. 0.75 in the default look; 0.64 is chest level.
+  - Captions keep one size all video; a caption too wide for the frame breaks onto another line (never shrinks).
 - **Caption layout**
   - `max_words`: words per caption.
   - `lines`: stacked lines, 1-4.

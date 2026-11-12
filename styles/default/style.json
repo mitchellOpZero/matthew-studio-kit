@@ -1,5 +1,5 @@
 {
-  "_about": "The default look for every vertical Short: a reserved top graphic panel, talking head below, captions in a capsule on the seam. Graphics are high-fidelity replicas of real things mentioned in the transcript (a real Google results page, a real ChatGPT window, etc.), not a fixed template stack.",
+  "_about": "The default look for every vertical Short: while a graphic shows, a top panel sized to it with his talking head below; full face otherwise; captions in a capsule at one fixed height (one size, breaking onto a second line instead of shrinking). Graphics are high-fidelity replicas of real things mentioned in the transcript (a real Google results page, a real ChatGPT window, etc.), not a fixed template stack.",
   "font": "Outfit",
   "font_file": "Outfit-Bold.ttf",
   "font_size_frac": 0.042,
@@ -8,7 +8,7 @@
   "stroke_color": "#121417",
   "stroke": 0,
   "shadow": 0,
-  "center_y_frac": 0.5,
+  "center_y_frac": 0.75,
   "uppercase": false,
   "one_line": true,
   "max_words": 4,

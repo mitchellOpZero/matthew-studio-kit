@@ -1,0 +1,6 @@
+{
+  "name": "red-active-pill",
+  "kind": "captions",
+  "description": "Caption design from Matthew's older reels: small white words, and the word he is saying sits in a rounded pill in the style's highlight colour (default #C61D3A) that moves word to word. No pop, no colour change on the letters.",
+  "plan": "a style setting, not a plan entry: \"caption_template\": \"red-active-pill\". His reel settings: font Arial Bold, font_size_frac 0.0344, highlight_color #C61D3A, stroke 1, shadow 0, center_y_frac 0.686, max_words 4, max_chars 22, kw_sync_pop false, kw_pop_pct 0, pop_scale 1."
+}

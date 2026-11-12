@@ -151,6 +151,11 @@ def template_props(props, media, base=None):
 
 def build(edl_path, full=True):
     edl = json.load(open(edl_path)); edl_dir = os.path.dirname(os.path.abspath(edl_path))
+    # a per-video frame_layout in the plan's style is ignored: the layout is the style's, or "graphic_layout" when he
+    # asks for one on this video (an agent once slipped "full" in to fight the guard)
+    dropped = "frame_layout" in (edl.get("style") or {})
+    if dropped:
+        edl = dict(edl, style={k: v for k, v in edl["style"].items() if k != "frame_layout"})
     # a path in the plan: absolute, in the job folder, or in the kit (library/..., assets/...)
     rel = lambda p: p if not p or os.path.isabs(p) else next((c for c in (os.path.join(edl_dir, p), os.path.join(KIT, p)) if os.path.exists(c)),
                                                              os.path.join(edl_dir, p))
@@ -186,14 +191,14 @@ def build(edl_path, full=True):
     # captions: the same chunks as the ASS writer, with each word's spoken frame
     kws = qe.highlight_set(owords, edl, st)
     shown, _ = qe.caption_chunks(owords, total, edl, st)
+    # one caption size for the whole video: a caption too wide for the frame breaks onto another line instead of shrinking
     fs = st["font_size_frac"] * H
     caps = []
     for c, s, e in shown:
-        fit = qe._fit_one_line(c, st, round(fs), W) if st.get("one_line") else 1.0
         # t0 / at: exact times in frames (floats); the pop and each keyword's colour are timed from them, like libass
         lines = [[{"text": (w["w"].upper() if st["uppercase"] else w["w"]), "hot": qe.norm(w["w"]) in kws,
-                   "at": round(s * fps + int((w["s"] - s) * 1000) / 1000 * fps, 4)} for w in line] for line in qe._lines(c, st)]
-        caps.append({"start": fc(s), "end": fc(e), "t0": round(s * fps, 4), "size": round(fs) * fit, "lines": lines})
+                   "at": round(s * fps + int((w["s"] - s) * 1000) / 1000 * fps, 4)} for w in line] for line in qe.fit_lines(c, st, round(fs), W)]
+        caps.append({"start": fc(s), "end": fc(e), "t0": round(s * fps, 4), "size": round(fs), "lines": lines})
 
     # overlays: a logo tile ({template: logo_pop, props}), a picture card ({picture}) or a transparent video ({file}); x/y are 1080-wide px
     ovs = []
@@ -229,60 +234,61 @@ def build(edl_path, full=True):
     # HyperFrames library blocks (hyperframes catalog): {name, at, dur, vars, box: [x, y, w, h] in output px}
     blocks = [{"name": b["name"], "start": fc(float(b["at"])), "frames": f(float(b.get("dur", 2.0))),
                "vars": b.get("vars") or {}, "box": b.get("box"), "data": b.get("data"), "fit": b.get("fit") or "native",
-               "canned_ok": bool(b.get("canned_ok")), "invented_ok": bool(b.get("invented_ok"))} for b in edl.get("blocks") or []]
+               "canned_ok": bool(b.get("canned_ok")), "invented_ok": bool(b.get("invented_ok")),
+               **{k: b[k] for k in ("kind", "show", "panel_h", "tryout") if b.get(k) is not None}} for b in edl.get("blocks") or []]
 
     dlg = dialogue(edl, edl_dir, src, pieces, st, total)
     st, layout_note = frame_layout(edl, st, blocks, ovs, gfx, W, H)
-    guard_notes = []
-    if str(st.get("frame_layout") or "").lower() in SPLIT:
-        try:
-            guard_notes = gg.place_blocks(blocks, W, H) + gg.place_overlays(ovs, W, H)
-        except ValueError as e:
-            qe.die(str(e))
-        st = dict(st); st["face_focus_y"] = face_focus(cfr, cam, fps)
-    elif blocks and gg.is_vertical(W, H):
-        qe.die("blocks on a Short need the split frame (graphic panel on top, his face below)")
-
+    if dropped:
+        layout_note += "; the plan's style.frame_layout was ignored (set \"graphic_layout\" only when he asks for a layout on this video)"
+    vertical_graphics = bool(blocks) and gg.is_vertical(W, H)
     style = {k: v for k, v in st.items() if not k.startswith("_")}
     style["font_css_scale"] = font_scale(st)
-    if str(st.get("frame_layout") or "").lower() in SPLIT:
-        # split only while a graphic is on screen (captions on the seam then); his face full frame the rest of the time,
-        # captions at the full-frame height there
-        full_st = dict(st, center_y_frac=float(st.get("full_center_y_frac", 0.7)))
-        style["center_y_frac"], place = caption_y(edl, full_st, cfr, cam, caps, fps, W, H)
-        place = "split while a graphic shows, captions on the seam; his face full frame otherwise, " + place
-    else:
-        style["center_y_frac"], place = caption_y(edl, st, cfr, cam, caps, fps, W, H)
+    # captions sit at one fixed height for the whole video (no jumping to a seam while a graphic shows)
+    style["center_y_frac"], place = caption_y(edl, st, cfr, cam, caps, fps, W, H)
+    layout = None
+    guard_notes = []
+    if vertical_graphics:
+        cap_h = max((c["size"] * (len(c["lines"]) + 0.6) for c in caps), default=fs * 1.6)
+        cap_top = gg.caption_top(style["center_y_frac"], cap_h, H)
+        face = face_focus(cfr, cam, fps)
+        layout = {"mode": gg.graphic_layout(edl, st), "cap_top": round(cap_top, 1), "face": face}
+        if layout["mode"] == "panel":
+            guard_notes = gg.place_overlays(ovs, W, H, cap_top)
+        st = dict(st); st["face_focus_y"] = face; style["face_focus_y"] = face
     font_file = qe._font_path(st); FONT = media_key("font", font_file)
     media[FONT] = font_file
     tl = {"fps": fps, "width": W, "height": H, "frames": frames, "src_w": iw, "src_h": ih,
           "audio_processing": {"pipeline": audio_clean.VERSION, "cleanup": (edl.get("audio") or {}).get("cleanup", True)},
           "style_name": edl.get("style_name") or "", "style": style, "font": FONT,
-          "dialogue": dlg, "camera": cam, "captions": caps, "overlays": ovs, "broll": broll, "sfx": sfx, "graphics": gfx, "blocks": blocks,
+          # this video's own graphics (.work/<job>/graphics/<name>/), never saved into a style unless he asks
+          "graphics_dirs": [os.path.join(edl_dir, "graphics")] + ([os.path.join(rel(edl["graphics_job"]), "graphics")] if edl.get("graphics_job") else []),
+          "layout": layout, "dialogue": dlg, "camera": cam, "captions": caps, "overlays": ovs, "broll": broll, "sfx": sfx, "graphics": gfx, "blocks": blocks,
           "caption_place": place + layout_note + "".join("; " + n for n in guard_notes),
           "words": [{"w": w["w"], "s": round(w["s"], 3), "e": round(w["e"], 3)} for w in owords]}
     return tl, media
 
 
-SPLIT = {"split", "panel", "top-panel"}
+SPLIT = gg.PANEL_LAYOUTS
 
 
 def frame_layout(edl, st, blocks, overlays, graphics, W=None, H=None):
-    """The split frame (graphic panel on top, his face below) only when the video has graphics to put in the panel.
-    A video with none gets his face full frame instead of an empty top half. The plan's own frame_layout wins, except
-    that a vertical Short with any library block is always split: a block never goes over his face, whatever the style
-    or plan says (that full frame put a message thread on his chest)."""
-    if blocks and W and H and gg.is_vertical(W, H):
-        if str(st.get("frame_layout") or "").strip().lower() in SPLIT:
-            return st, ""
-        st = dict(st); st["frame_layout"] = "split"; st.setdefault("panel_color", "#121417")
-        return st, "; it has graphics, so the frame is split (graphic panel on top, his face below, captions on the seam)"
-    if str(st.get("frame_layout") or "").strip().lower() not in SPLIT or "frame_layout" in (edl.get("style") or {}):
+    """How a Short with graphics is laid out: "split" (a top panel sized to each graphic while it shows, his face below)
+    or "full" (his face full frame, graphics as overlays around him or full-screen cutaways). The plan's graphic_layout
+    (his choice for this video) wins, else the style's. Neither is forced. A Short with no library block is full face:
+    no empty top panel. Long-form is left as the style says."""
+    if W and H and not gg.is_vertical(W, H):
         return st, ""
-    if blocks or overlays or graphics:
+    if blocks and W and H:
+        mode = gg.graphic_layout(edl, st)
+        want = "split" if mode == "panel" else "full"
+        st = dict(st); st["frame_layout"] = want; st["graphic_layout"] = mode
+        st.setdefault("panel_color", "#121417")
+        return st, ("; graphics in a top panel sized to each graphic while it shows, his face below, full face otherwise" if mode == "panel"
+                    else "; his face full frame, graphics pop in around him or as full-screen cutaways")
+    if str(st.get("frame_layout") or "").strip().lower() not in SPLIT:
         return st, ""
     st = dict(st); st["frame_layout"] = "full"
-    st["center_y_frac"] = float(st.get("full_center_y_frac", 0.7))
     return st, "; no graphics, so his face is full frame (no empty top panel)"
 
 
@@ -342,7 +348,7 @@ def caption_y(edl, st, cfr, cam, caps, fps, W, H):
         return float(edl["caption_y_frac"]), f"captions at {float(edl['caption_y_frac']):.2f} (set in the plan)"
     if not st.get("avoid_faces", True) or not caps or not cam:
         return base, f"captions at {base:.2f} (style)"
-    half = max(c["size"] for c in caps) / H / 2
+    half = max(c["size"] * len(c.get("lines") or [1]) for c in caps) / H / 2
     faces = [b for b in face_bottoms(cfr, cam, fps) if b is not None]
     if not faces:
         return base, f"captions at {base:.2f} (style; no face found)"

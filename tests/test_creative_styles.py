@@ -66,8 +66,8 @@ class DefaultStyleTests(unittest.TestCase):
         self.assertNotIn("go crazy", agents.lower())
         self.assertNotIn("premium-motion", agents.lower())
         self.assertIn("2.3.1", (ROOT / "CHANGELOG.md").read_text())
-        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.6")
-        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.6")
+        self.assertEqual(json.loads((ROOT / "plugin.json").read_text())["version"], "2.3.7")
+        self.assertEqual(json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())["version"], "2.3.7")
 
 
 
@@ -77,6 +77,7 @@ class PreferenceOverlayTests(unittest.TestCase):
         import quick_edit as qe
         self.assertIn("highlight_color", qe.PREF_KEYS)
         self.assertNotIn("frame_layout", qe.PREF_KEYS)
+        self.assertIn("graphic_layout", qe.PREF_KEYS)   # full face as a standing choice
         self.assertNotIn("logos", qe.PREF_KEYS)
         with tempfile.TemporaryDirectory() as d:
             pref = Path(d) / "preferences.json"

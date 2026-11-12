@@ -4,7 +4,7 @@
         letter-spacing: 0.01em;
         font-weight: 650;
         background: rgba(12, 14, 16, 0.92);
-        border-radius: 999px;
+        border-radius: 0.72em;   /* a pill on one line, a rounded box when a caption breaks onto two */
         padding: 0.22em 0.78em 0.26em;
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
         color: #F3F4F6;

@@ -124,24 +124,42 @@ def voice_track(tl, out):
 
 
 # ---------------------------------------------------------------- library blocks
-def own_block(style_name, name):
-    """A block he had built: <style>/templates/<name>/<name>.html (his copy first), or graphics/<name>/<name>.html."""
-    for d in (os.path.join(KIT, "my-styles", style_name, "templates", name), os.path.join(KIT, "styles", style_name, "templates", name),
-              os.path.join(KIT, "graphics", name)):
-        if os.path.exists(os.path.join(d, f"{name}.html")): return d
-    return None
+SAVED = "saved"   # manifest.json key: a graphic he asked to keep in his style (bin/kit graphics save)
 
 
-def install_block(name, proj, style_name=""):
+def own_block(style_name, name, graphics_dirs=()):
+    """A graphic built for this video (.work/<job>/graphics/<name>/<name>.html), else one he asked to keep in his style
+    (my-styles/<style>/templates/<name>/, marked saved), else the style's built-in one, else graphics/<name>/.
+    Returns (folder, where) or (None, None). A graphic an older video left in my-styles without being saved is refused:
+    a new Short never inherits an old video's graphic or its text."""
+    for g in graphics_dirs or ():
+        d = os.path.join(g, name)
+        if os.path.exists(os.path.join(d, f"{name}.html")): return d, "video"
+    d = os.path.join(KIT, "my-styles", style_name, "templates", name)
+    if os.path.exists(os.path.join(d, f"{name}.html")):
+        try: saved = bool(json.load(open(os.path.join(d, "manifest.json"))).get(SAVED))
+        except (OSError, ValueError): saved = False
+        if not saved:
+            qe.die(f"my-styles/{style_name}/templates/{name}/ was left there by an older video, not saved by him, so it isn't used "
+                   f"(a new Short never inherits an old video's graphic or text). Build this video's own copy in "
+                   f".work/<job>/graphics/{name}/{name}.html with this video's words. Only if he asked to keep it in his style: "
+                   f"bin/kit graphics save {name} --style {style_name or 'default'}")
+        return d, "style"
+    for d, where in ((os.path.join(KIT, "styles", style_name, "templates", name), "style"), (os.path.join(KIT, "graphics", name), "kit")):
+        if os.path.exists(os.path.join(d, f"{name}.html")): return d, where
+    return None, None
+
+
+def install_block(name, proj, style_name="", graphics_dirs=()):
     """Copy a block into the project: one of his own (own_block), else a HyperFrames library block (from the kit's cache;
-    the first use downloads it). Returns the block's {id, w, h, dur} read from its own file."""
-    own = own_block(style_name, name)
+    the first use downloads it). Returns the block's {id, w, h, dur, origin} read from its own file."""
+    own, where = own_block(style_name, name, graphics_dirs)
     if own:
         os.makedirs(os.path.join(proj, "compositions"), exist_ok=True)
         shutil.copy2(os.path.join(own, f"{name}.html"), os.path.join(proj, "compositions", f"{name}.html"))
         if os.path.isdir(os.path.join(own, "assets")):
             shutil.copytree(os.path.join(own, "assets"), os.path.join(proj, "assets"), dirs_exist_ok=True)
-        return dict(block_meta(os.path.join(own, f"{name}.html"), name), src=f"compositions/{name}.html")
+        return dict(block_meta(os.path.join(own, f"{name}.html"), name), src=f"compositions/{name}.html", origin=where)
     cache = os.path.join(BLOCKS, name)
     if not library_file(cache, name):
         fetch_block(name)
@@ -149,7 +167,7 @@ def install_block(name, proj, style_name=""):
         if os.path.isfile(f):
             dst = os.path.join(proj, os.path.relpath(f, cache))
             if not os.path.exists(dst): os.makedirs(os.path.dirname(dst), exist_ok=True); shutil.copy2(f, dst)
-    return block_meta(library_file(cache, name), name)
+    return dict(block_meta(library_file(cache, name), name), origin="library")
 
 
 def library_file(cache, name):
@@ -228,13 +246,19 @@ def prepare_block(b, i, proj, meta):
         data = b["data"] if not isinstance(b["data"], dict) or not isinstance(data, dict) else {**data, **b["data"]}
         src = gg.set_primitive_data(src, data)
     texts = gg.strings_in(data) + gg.strings_in(b.get("vars") or {})
+    b["message"] = gg.is_message(dict(b, data=data if b.get("data") is None else b["data"]))
+    # a message graphic from the library or a saved style still showing the texts it came with: an old video's or a demo's
+    b["needs_data"] = b["message"] and meta.get("origin") != "video" and b.get("data") is None and not b.get("vars")
     src = real_look(src, b["name"])
+    b["html_texts"] = gg.html_texts(src)   # words typed straight into the graphic are checked too
     m = dict(meta)
     x, y, w, h = b["box"]
     if not m.get("fluid"):
         k = min(w / m["w"], h / m["h"])
         if b.get("fit") != "scale" or k < gg.MIN_SCALE:
-            src = reflow(src, m["w"], m["h"], round(w), round(h)); m["w"], m["h"] = round(w), round(h)
+            # laid out at the box size, or a little bigger and mounted at reflow_scale (a long thread, nothing cut off)
+            rs = float(b.get("reflow_scale") or 1.0)
+            src = reflow(src, m["w"], m["h"], round(w / rs), round(h / rs)); m["w"], m["h"] = round(w / rs), round(h / rs)
     base, ext = os.path.splitext(src_rel)
     m["src"] = f"{base}--{i}{ext}"
     open(os.path.join(proj, m["src"]), "w").write(src)
@@ -262,26 +286,39 @@ def caption_design(tl):
 
 # ---------------------------------------------------------------- the project
 def split_windows(tl, lens=None):
-    """The frame spans (start, end) a library block is on screen, merged when they touch: the split frame's spans."""
+    """The frame spans (start, end) a library block is on screen, merged when they touch: the panel's spans."""
+    return [(w0, w1) for w0, w1, _ in panel_windows(tl, lens)]
+
+
+def panel_windows(tl, lens=None):
+    """[(start, end, panel height px)]: each span a panel block is on screen (merged when they touch), with the panel
+    as tall as its tallest block, so it doesn't change size while it shows."""
     out, bl = [], tl.get("blocks") or []
     for i, b in sorted(enumerate(bl), key=lambda ib: ib[1]["start"]):
+        if b.get("show") in ("overlay", "cutaway"): continue
         end = b["start"] + (lens[i] if lens else b["frames"])
-        if out and b["start"] <= out[-1][1]: out[-1][1] = max(out[-1][1], end)
-        else: out.append([b["start"], end])
+        box = b.get("box") or gg.graphic_area(tl["width"], tl["height"])
+        ph = int(round(box[1] + box[3]))
+        if out and b["start"] <= out[-1][1]: out[-1][1] = max(out[-1][1], end); out[-1][2] = max(out[-1][2], ph)
+        else: out.append([b["start"], end, ph])
     return [tuple(w) for w in out]
 
 
-def face_pos(tl):
-    """object-position y (%) for his face in the split frame's bottom half: the face box centred in the half (his chin
-    kept in when the face is tall), from the face found in the clip; 28% when none was found."""
+def face_pos(tl, top=None):
+    """object-position y (%) for his face below a panel that ends at `top` (px; default half the frame): the face box
+    centred between the panel and the caption line (his chin kept in when the face is tall), from the face found in
+    the clip; 28% when none was found."""
     f = (tl.get("style") or {}).get("face_focus_y")
     W, H, sw, sh = tl["width"], tl["height"], tl.get("src_w") or 1080, tl.get("src_h") or 1920
-    ph = H - H // 2; rh = sh * W / sw
+    top = H // 2 if top is None else top
+    ph = H - top; rh = sh * W / sw
     if not f or rh <= ph: return 28.0
-    top, bot = f["top"] * rh, f["bottom"] * rh
-    off = (top + bot) / 2 - ph * 0.48
-    off = min(off, top - ph * 0.06) if bot - top > ph * 0.85 else off   # a very tall face: keep from the forehead down
-    off = max(0.0, min(rh - ph, max(off, bot + ph * 0.04 - ph)))         # never cut the chin
+    cap_top = ((tl.get("layout") or {}).get("cap_top")) or (top + ph * 0.96)
+    room = max(ph * 0.3, min(ph, cap_top - top))   # where his face can be seen: from the panel down to the captions
+    ft, fb = f["top"] * rh, f["bottom"] * rh
+    off = (ft + fb) / 2 - room * 0.5
+    off = min(off, ft - room * 0.06) if fb - ft > room * 0.85 else off   # a very tall face: keep from the forehead down
+    off = max(0.0, min(rh - ph, max(off, fb + ph * 0.04 - ph)))           # never cut the chin
     return off / (rh - ph) * 100
 
 
@@ -318,16 +355,16 @@ def write_html(tl, blocks_meta):
             js.append(f'tl.fromTo("#cam{i}", {{scale: 1}}, {{scale: {1 + p["drift"]}, duration: {p["frames"] / fps:.4f}, ease: "none", '
                       f'transformOrigin: "{x * k + W / 2:.1f}px {y * k + H / 2:.1f}px"}}, {jt(p["start"])});')
 
-    # frame_layout=split: while a graphic is on screen, the top half is the graphic panel (opaque) and his face sits in
-    # the bottom half, framed on his face; the rest of the time (the hook, between graphics) his face is full frame,
-    # never an empty panel.
+    # panel layout (frame_layout split): while a graphic is on screen, a panel on top as tall as that graphic (opaque)
+    # and his face below it, framed between the panel and the captions; the rest of the time (the hook, between
+    # graphics) his face is full frame. full layout: no panel; graphics pop in around his face or cut away full screen.
     lens = [min(b["frames"], int((blocks_meta.get(i) or blocks_meta.get(b["name"]) or {"dur": 9999})["dur"] * fps))
             for i, b in enumerate(tl.get("blocks") or [])]
-    windows = split_windows(tl, lens) if frame_split else []
-    head = (f"left:0;top:{H // 2}px;width:{W}px;height:{H - H // 2}px;object-fit:cover;object-position:50% {face_pos(tl):.1f}%")
-    for wi, (w0, w1) in enumerate(windows):
+    windows = panel_windows(tl, lens) if frame_split else []
+    for wi, (w0, w1, ph) in enumerate(windows):
+        head = (f"left:0;top:{ph}px;width:{W}px;height:{H - ph}px;object-fit:cover;object-position:50% {face_pos(tl, ph):.1f}%")
         body.append(f'<div id="panel{wi}" class="clip" {span(w0, w1 - w0)} data-track-index="20" style="position:absolute;left:0;top:0;'
-                    f'width:{W}px;height:{H // 2}px;background:{panel_color}"></div>')
+                    f'width:{W}px;height:{ph}px;background:{panel_color}"></div>')
         pieces = [p for p in tl["camera"] if p["start"] < w1 and p["start"] + p["frames"] > w0]
         for j, p in enumerate(pieces):
             a0 = max(p["start"], w0); a1 = min(p["start"] + p["frames"] + (1 if j < len(pieces) - 1 else 0), w1)
@@ -366,8 +403,7 @@ def write_html(tl, blocks_meta):
     white, hot = st.get("color", "#FFFFFF"), st.get("highlight_color", "#DC143C")
     ks, kpop = float(st.get("keyword_scale", 1.0)), float(st.get("kw_pop_pct", 0)) / 100   # keyword size, and its pop as it's spoken
     design = caption_design(tl)
-    # during a split screen (b-roll top, his face bottom) captions sit on the seam between the two, off his face
-    seams = [(b["start"], b["start"] + b["frames"]) for b in tl["broll"] if b.get("layout") == "split"] + windows
+    # captions stay at one height for the whole video (style center_y_frac, set once per video): no jumping to a seam
     for i, c in enumerate(tl["captions"]):
         t0 = c.get("t0", c["start"])
         lines = []
@@ -385,10 +421,8 @@ def write_html(tl, blocks_meta):
                     js.append(f'tl.fromTo("#{wid}", {{scale: {1 + kpop:g}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, ease: "none"}}, {jt(w["at"])});')
             lines.append("<div>" + " ".join(ws) + "</div>")
         px = c["size"] * st.get("font_css_scale", 0.82)
-        on_seam = any(c["start"] < b and c["end"] > a for a, b in seams)
-        seam = f' style="top:{H / 2:.0f}px"' if on_seam else ""
         caps_html.append(f'<div id="cap{i}" class="clip" {span(c["start"], max(1, c["end"] - c["start"]))} '
-                    f'data-track-index="2"><div class="cap"{seam}><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
+                    f'data-track-index="2"><div class="cap"><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
                     f'line-height:{c["size"]:.2f}px">{"".join(lines)}</div></div></div>')
         js.append(f'tl.fromTo("#capin{i}", {{scale: {st.get("pop_scale", 1.06)}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, '
                   f'ease: "none"}}, {jt(t0)});')
@@ -419,27 +453,34 @@ def write_html(tl, blocks_meta):
         pop(f"#gfxin{i}", g["start"], CARD_POP)
         js.append(f'tl.to("#gfxin{i}", {{opacity: 0, duration: 0.12, ease: "none"}}, {jt(g["start"] + g["frames"] - 0.12 * fps)});')
 
-    # library blocks: HyperFrames sub-compositions, each in its box [x, y, w, h]. On a vertical Short the box is always
-    # inside the top graphic panel (graphic_guard.place_blocks). A block's own canvas is never scaled up, and a block
-    # prepared at the box size (prepare_block) mounts at scale 1: sharp text, no soft upscaled card.
+    # library blocks: HyperFrames sub-compositions, each in its box [x, y, w, h] (graphic_guard.place_blocks: a panel
+    # sized to the block, an overlay around his face, or a full-screen cutaway). A block's own canvas is never scaled
+    # up, and a block prepared at the box size (prepare_block) mounts at scale 1: sharp text, no soft upscaled card.
     for i, b in enumerate(tl.get("blocks") or []):
         m = blocks_meta.get(i) or blocks_meta[b["name"]]
         n = min(b["frames"], int(m["dur"] * fps))
-        default_box = gg.graphic_area(W, H) if frame_split else [0, 0, W, H]
-        x, y, w, h = b.get("box") or default_box
+        x, y, w, h = b.get("box") or [0, 0, W, H]
         if m.get("fluid"):   # a component fills the box it's given, at full resolution
             mw, mh, k = round(w), round(h), 1.0
         else:                # a block keeps its own canvas, fitted into the box (never enlarged) and centred in it
             mw, mh = m["w"], m["h"]; k = min(1.0, w / mw, h / mh)
             x, y = x + (w - mw * k) / 2, y + (h - mh * k) / 2
         vv = f" data-variable-values='{html.escape(json.dumps(b['vars']), quote=True)}'" if b.get("vars") else ""
-        # a graphic that fills the reserved top panel stays square-cornered, like a real screen
-        fills_panel = frame_split and [round(v) for v in (b.get("box") or default_box)] == [round(v) for v in default_box]
-        radius = 0 if fills_panel else (round(28 / k) if k < 1 else 28)
-        body.append(f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="{m.get("src") or f"compositions/{b['name']}.html"}" '
-                    f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{mw}" data-height="{mh}"{vv} '
-                    f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{mw}px;height:{mh}px;'
-                    f'transform-origin:0 0;transform:scale({k:.5f});overflow:hidden;border-radius:{radius}px"></div>')
+        show = b.get("show") or ""
+        # a panel or cutaway graphic is square-cornered, like a real screen; an overlay is a rounded card
+        radius = 0 if show in ("panel", "cutaway") or not show and frame_split else (round(28 / k) if k < 1 else 28)
+        lift = ";box-shadow:0 18px 50px rgba(0,0,0,0.45)" if show == "overlay" else ""
+        tag = (f'<div id="blk{i}" data-composition-id="{m["id"]}" data-composition-src="{m.get("src") or f"compositions/{b['name']}.html"}" '
+               f'{span(b["start"], n)} data-track-index="{7 + i}" data-width="{mw}" data-height="{mh}"{vv}'
+               f'{f" data-kit-show={chr(34)}{show}{chr(34)}" if show else ""} '
+               f'style="position:absolute;left:{x:.1f}px;top:{y:.1f}px;width:{mw}px;height:{mh}px;'
+               f'transform-origin:0 0;transform:scale({k:.5f});overflow:hidden;border-radius:{radius}px{lift}"></div>')
+        if show == "overlay":   # pops in around his face: a quick scale-up from its own centre
+            cx, cy = x + mw * k / 2, y + mh * k / 2
+            body.append(f'<div id="pop{i}" style="position:absolute;inset:0;transform-origin:{cx:.1f}px {cy:.1f}px">{tag}</div>')
+            js.append(f'tl.fromTo("#pop{i}", {{scale: 0.9, opacity: 0}}, {{scale: 1, opacity: 1, duration: 0.2, ease: "power2.out"}}, {jt(b["start"])});')
+        else:
+            body.append(tag)
 
     body += caps_html
     margin = round(W * 0.06)
@@ -468,6 +509,12 @@ def write_html(tl, blocks_meta):
                   + "words: Array.from(el.querySelectorAll('.w')).map(function (w) { return {el: w, at: +w.dataset.at, hot: w.classList.contains('kw'), "
                   + f"text: w.textContent}}; }})}}; }}), {style_json}, {H / 1920});")
     nl = "\n      "
+    lay = tl.get("layout") or {}
+    kit_attrs = ""
+    if lay:   # what the kit's layout check needs to read back from index.html (hand edits included)
+        face = gg.face_box(lay.get("face"), W, H)
+        kit_attrs = (f' data-kit-layout="{lay.get("mode", "panel")}" data-kit-cap-top="{lay.get("cap_top", H / 2):.0f}"'
+                     f' data-kit-face="{face[1]:.0f},{face[1] + face[3]:.0f}"')
     return f"""<!doctype html>
 <html lang="en">
   <head>
@@ -483,7 +530,7 @@ def write_html(tl, blocks_meta):
     <div id="root" data-composition-id="main" data-start="0" data-duration="{T:.4f}" data-fps="{fps}" data-width="{W}" data-height="{H}">
       <audio id="voice" src="assets/voice.wav" data-start="0" data-duration="{T:.4f}" data-track-index="0" data-volume="1"></audio>
       {nl.join(top)}
-      <div id="frame" data-layout-allow-overflow style="position:absolute;inset:0;overflow:hidden">
+      <div id="frame" data-layout-allow-overflow{kit_attrs} style="position:absolute;inset:0;overflow:hidden">
       {nl.join(body)}
       </div>
     </div>
@@ -513,16 +560,27 @@ def build(edl_path, force=False):
     for x in tl["sfx"]:
         x["dur_s"] = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
                                            media[x["file"]]], capture_output=True, text=True).stdout.strip() or 0.5)
-    installed = {b["name"]: install_block(b["name"], proj, tl.get("style_name") or "") for b in tl.get("blocks") or []}
-    blocks_meta = {}
+    gd = tl.get("graphics_dirs") or []
+    installed = {b["name"]: install_block(b["name"], proj, tl.get("style_name") or "", gd) for b in tl.get("blocks") or []}
+    blocks_meta, W, H = {}, tl["width"], tl["height"]
+    lay = tl.get("layout")
+    if lay and tl.get("blocks"):
+        # a vertical Short: each block's box from the layout (a panel sized to it, or an overlay / cutaway around his face)
+        try:
+            notes = gg.place_blocks(tl["blocks"], W, H, lay["mode"], lay["cap_top"], lay.get("face"),
+                                    {i: installed[b["name"]] for i, b in enumerate(tl["blocks"])})
+        except ValueError as e:
+            qe.die(str(e))
+        tl["caption_place"] = tl.get("caption_place", "") + "".join("; " + n for n in notes)
     for i, b in enumerate(tl.get("blocks") or []):
-        if not b.get("box"): b["box"] = gg.graphic_area(tl["width"], tl["height"]) if gg.is_vertical(tl["width"], tl["height"]) else [0, 0, tl["width"], tl["height"]]
+        if not b.get("box"): b["box"] = [0, 0, W, H]
         blocks_meta[i], b["texts"] = prepare_block(b, i, proj, installed[b["name"]])
     bad = gg.check_text(tl.get("blocks") or [], tl.get("graphics") or [], tl.get("words") or [], tl["fps"])
     if bad:
-        qe.die("on-screen text he never says (graphics show his words, not invented ones):\n  " + "\n  ".join(bad)
-               + "\nPut what he actually says at that moment in the block's \"data\" / \"vars\" (or the text card), then preview again."
-               + " Only if he asked for that exact text, set \"invented_ok\": true on the block.")
+        qe.die("on-screen text problems:\n  " + "\n  ".join(bad)
+               + "\nA normal graphic shows his words: put what he says at that moment in its \"data\" / \"vars\" / HTML (or the text card)."
+               + " A message graphic (iMessage, DM, notification) shows made-up, realistic texts from her, never his script lines."
+               + " Then preview again.")
     tl.setdefault('audio_processing', {}).update(voice_track(tl, os.path.join(a, "voice.wav")))
     idx = os.path.join(proj, "index.html")
     open(idx, "w").write(write_html(tl, blocks_meta))
@@ -535,9 +593,10 @@ def build(edl_path, force=False):
 
 
 def layout_errors(proj):
-    """The kit's own layout gate on index.html as it stands (hand edits included): on a vertical Short with the split
-    frame, every mounted block has to sit inside the top graphic panel, never on his face or across the caption seam,
-    at a phone-readable size. Returns error lines."""
+    """The kit's own layout gate on index.html as it stands (hand edits included), on a vertical Short:
+    panel layout: every mounted block sits in the top panel, above his face and the caption line;
+    full layout: an overlay never covers his face or the captions, and a cutaway fills the whole frame;
+    both: phone-readable size, never scaled up. Returns error lines."""
     idx = os.path.join(proj, "index.html")
     if not os.path.exists(idx): return []
     src = open(idx).read()
@@ -545,23 +604,41 @@ def layout_errors(proj):
     if not root: return []
     W, H = int(root.group(1)), int(root.group(2))
     if not gg.is_vertical(W, H): return []
-    errs, area = [], gg.graphic_area(W, H)
+    fr = re.search(r'<div id="frame"[^>]*>', src)
+    attr = lambda k, d=None: (lambda m: m.group(1) if m else d)(re.search(rf'{k}="([^"]*)"', fr.group(0) if fr else ""))
+    mode = attr("data-kit-layout", "panel")
+    cap_top = float(attr("data-kit-cap-top", H / 2))
+    ft, fb = (float(v) for v in attr("data-kit-face", f"{H // 2},{H}").split(","))
+    face = [0, ft, W, fb - ft]
+    lim = max(gg.panel_max(H, cap_top), gg.graphic_area(W, H)[3])
+    errs = []
     for tag in re.findall(r"<div\b[^>]*data-composition-src=[^>]*>", src):
         bid = (re.search(r'id="([^"]+)"', tag) or [None, "?"])[1]
         st = (re.search(r'style="([^"]*)"', tag) or [None, ""])[1]
+        show = (re.search(r'data-kit-show="([^"]*)"', tag) or [None, "panel" if mode == "panel" else "overlay"])[1]
         num = lambda k: (lambda m: float(m.group(1)) if m else None)(re.search(rf"(?<![-\w]){k}:\s*(-?[\d.]+)px", st))
         x, y, w, h = num("left"), num("top"), num("width"), num("height")
         if None in (x, y, w, h):
-            errs.append(f"layout: block #{bid} has no fixed box (left/top/width/height in px); mount it in the top graphic panel {area}")
+            errs.append(f"layout: block #{bid} has no fixed box (left/top/width/height in px); mount it in the top panel [0, 0, {W}, <= {lim:.0f}]")
             continue
         k = (lambda m: float(m.group(1)) if m else 1.0)(re.search(r"scale\(([\d.]+)\)", st))
         box = [x, y, w * k, h * k]
-        if gg.overlaps(box, gg.face_area(W, H)):
-            errs.append(f"layout: block #{bid} at {[round(v) for v in box]} covers his face; keep it inside the top graphic panel {area}")
-        elif not gg.inside(box, area):
-            errs.append(f"layout: block #{bid} at {[round(v) for v in box]} crosses the caption seam or the frame edge; keep it inside {area}")
-        if box[2] < gg.MIN_BOX_W_FRAC * W or box[3] < gg.MIN_BOX_H * H / 1920:
-            errs.append(f"layout: block #{bid} is {round(box[2])}x{round(box[3])} px, too small to read on a phone; give it the panel {area}")
+        rb = [round(v) for v in box]
+        if show == "cutaway":
+            if not (box[0] <= 1 and box[1] <= 1 and box[2] >= W - 1 and box[3] >= H - 1):
+                errs.append(f"layout: cutaway #{bid} at {rb} doesn't fill the frame, so it sits on his face; make it [0, 0, {W}, {H}] or an overlay beside his face")
+        elif show == "overlay" or mode == "full":
+            if gg.overlaps(box, face):
+                errs.append(f"layout: block #{bid} at {rb} covers his face (rows {ft:.0f}-{fb:.0f}); move it above or below his face, or make it a full-screen cutaway")
+            elif box[1] + box[3] > cap_top + 1:
+                errs.append(f"layout: block #{bid} at {rb} runs into the captions (they start at y={cap_top:.0f})")
+        elif box[1] + box[3] > lim + 1:
+            errs.append(f"layout: block #{bid} at {rb} covers his face; keep it inside the top panel [0, 0, {W}, <= {lim:.0f}]")
+        elif not gg.inside(box, [0, 0, W, lim]):
+            errs.append(f"layout: block #{bid} at {rb} crosses the frame edge; keep it inside [0, 0, {W}, <= {lim:.0f}]")
+        if show != "cutaway" and (box[2] < gg.MIN_BOX_W_FRAC * W or box[3] < gg.MIN_BOX_H * H / 1920):
+            errs.append(f"layout: block #{bid} is {round(box[2])}x{round(box[3])} px, too small to read on a phone; make it at least "
+                        f"{round(gg.MIN_BOX_W_FRAC * W)} px wide and {round(gg.MIN_BOX_H * H / 1920)} px tall")
         if k > 1.001:
             errs.append(f"layout: block #{bid} is scaled up {k:.2f}x, which makes it soft; lay it out at the box size instead")
     return errs
