@@ -7,6 +7,7 @@ import hashlib, json, math, os, subprocess
 
 import quick_edit as qe
 import audio_clean
+import auto_sfx
 import graphic_guard as gg
 
 KIT = qe.KIT
@@ -237,6 +238,16 @@ def build(edl_path, full=True):
                "canned_ok": bool(b.get("canned_ok")), "invented_ok": bool(b.get("invented_ok")),
                **{k: b[k] for k in ("kind", "show", "panel_h", "tryout") if b.get(k) is not None}} for b in edl.get("blocks") or []]
 
+    # sound effects are always there: the kit adds a soft swipe on each move into and out of b-roll and a graphic that
+    # the plan left silent (engine/auto_sfx.py). Sounds already in the plan are kept as they are.
+    if auto_sfx.enabled(edl, st) and (broll or blocks):
+        swipe = auto_sfx.swipe_file(KIT)
+        if swipe:
+            key = media_key("sfx", swipe)
+            for t in auto_sfx.auto_times(broll, blocks, owords, [x["start"] / fps for x in sfx], fps, total):
+                media[key] = swipe
+                sfx.append({"start": fc(t), "file": key, "gain_db": auto_sfx.GAIN_DB, "auto": True})
+            sfx.sort(key=lambda x: x["start"])
     dlg = dialogue(edl, edl_dir, src, pieces, st, total)
     st, layout_note = frame_layout(edl, st, blocks, ovs, gfx, W, H)
     if dropped:

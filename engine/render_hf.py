@@ -404,8 +404,11 @@ def write_html(tl, blocks_meta):
     ks, kpop = float(st.get("keyword_scale", 1.0)), float(st.get("kw_pop_pct", 0)) / 100   # keyword size, and its pop as it's spoken
     design = caption_design(tl)
     # captions stay at one height for the whole video (style center_y_frac, set once per video): no jumping to a seam
+    # a caption shown over a full-screen graphic gets a dark halo, so white words stay readable on a white screen
+    cutaways = [(b["start"], b["start"] + b["frames"]) for b in tl.get("blocks") or [] if b.get("show") == "cutaway"]
     for i, c in enumerate(tl["captions"]):
         t0 = c.get("t0", c["start"])
+        on_gfx = " ongfx" if any(c["start"] < e and c["end"] > s for s, e in cutaways) else ""
         lines = []
         for li, line in enumerate(c["lines"]):
             ws = []
@@ -422,7 +425,7 @@ def write_html(tl, blocks_meta):
             lines.append("<div>" + " ".join(ws) + "</div>")
         px = c["size"] * st.get("font_css_scale", 0.82)
         caps_html.append(f'<div id="cap{i}" class="clip" {span(c["start"], max(1, c["end"] - c["start"]))} '
-                    f'data-track-index="2"><div class="cap"><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
+                    f'data-track-index="2"><div class="cap{on_gfx}"><div id="capin{i}" class="capin" data-t0="{jt(t0)}" style="font-size:{px:.2f}px;'
                     f'line-height:{c["size"]:.2f}px">{"".join(lines)}</div></div></div>')
         js.append(f'tl.fromTo("#capin{i}", {{scale: {st.get("pop_scale", 1.06)}}}, {{scale: 1, duration: {st.get("pop_ms", 150) / 1000}, '
                   f'ease: "none"}}, {jt(t0)});')
@@ -494,6 +497,7 @@ def write_html(tl, blocks_meta):
                 -webkit-text-stroke: {2 * stroke:.2f}px {st.get('stroke_color', '#000000')}; paint-order: stroke fill;
                 filter: drop-shadow({shadow:.2f}px {shadow:.2f}px 0 rgba(0,0,0,0.5)); }}
       .w {{ display: inline-block; }}
+      .ongfx .w {{ text-shadow: 0 0 .10em rgba(0,0,0,.95), 0 .04em .12em rgba(0,0,0,.9), 0 0 .32em rgba(0,0,0,.65); }}
       .tile {{ width: 230px; height: 230px; border-radius: 54px; background: white; display: flex; align-items: center;
                justify-content: center; box-shadow: 0 8px 28px rgba(0,0,0,0.35); opacity: 0; }}
       .card {{ overflow: hidden; background: white; box-shadow: 0 14px 40px rgba(0,0,0,0.38); opacity: 0; }}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.9
+
+- Sound effects are always there. The kit adds a soft swipe on each move into and out of B-roll and a graphic that the plan left silent, a beat before the cut and in the gap between words when there is one. Sounds already in the plan are kept. `"sfx_auto": false` turns it off when he asks.
+- The kit ships his approved sounds (`assets/sfx/swipe-soft.wav`, `ui-pop.wav`, `ui-tick.wav`); a copy in `library/sfx/` is used first.
+- B-roll goes on most Shorts without being asked, where a clip from his library fits. The docs no longer say "only when he asks".
+- A caption shown over a full-screen graphic gets a dark halo, so white captions stay readable on a white screen.
+
 ## 2.3.8
 
 - Repeated takes and long pauses are cut by the kit itself, at draft and at every preview. The first take of each restart the listener heard goes, and so does any pause longer than 0.35 s inside a kept piece (or more than 0.2 s of dead air at a piece's start or end), even after an edit merged pieces back together. It prints what it cut.
