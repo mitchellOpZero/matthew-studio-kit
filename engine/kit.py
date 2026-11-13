@@ -486,13 +486,18 @@ def cmd_draft(a) -> int:
         edl["broll"] = library.select_broll(words, edl["keywords"], edl["cuts"])
     if (st.get("logos") or {}).get("enabled"):
         add_logo_overlays(edl, words, st, job)
+    # Restarts the listener heard are part of the plan, and their first takes are cut straight away (engine/tighten.py).
+    hints = restart_hints(clip)
+    edl["restarts"] = [{k: (round(float(v), 3) if k != "text" else v) for k, v in h.items()} for h in hints]
     json.dump(edl, open(job / "edl.json", "w"), indent=2)
+    edl, tight = tighten_job(job, edl)
+    if tight:
+        print(f"{name}: {'; '.join(tight)}")
     short_note = _write_short_beside(name, edl, words, clip)
     # The transcript Codex reviews: restarts the listener heard first, then one line per word with its source time.
-    hints = restart_hints(clip)
     with open(job / "TRANSCRIPT.txt", "w") as f:
         if hints:
-            f.write("RESTARTS HEARD (the transcript below may show these only once). Cut the first take, keep the last:\n")
+            f.write("RESTARTS HEARD (the transcript below may show these only once). The kit already cut the first take of each and kept the last; listen for any it missed:\n")
             for h in hints:
                 f.write(f"  {h['first_start']:.2f}-{h['first_end']:.2f}  first take  \"{h['text']}\"   retake starts {h['retake_start']:.2f}\n")
             f.write("\n")
@@ -669,6 +674,35 @@ def cmd_check(a) -> int:
     return 1 if bad else 0
 
 
+def tighten_job(job: Path, edl: dict | None = None, save: bool = True) -> tuple[dict, list[str]]:
+    """Cut repeated takes and long pauses out of a job's plan the same way every time (engine/tighten.py). The plan on
+    disk is rewritten only when something changed. Returns (plan, notes)."""
+    sys.path.insert(0, str(ENGINE))
+    import quick_edit
+    import tighten
+    edl = edl if edl is not None else json.load(open(job / "edl.json"))
+    wp = edl.get("words")
+    wp = (job / wp) if wp and not os.path.isabs(wp) else Path(wp or "")
+    if not wp.is_file():
+        return edl, []
+    restarts = edl.get("restarts")
+    if restarts is None:
+        restarts = tighten.transcript_restarts(str(job))
+    new, notes = tighten.tighten_plan(edl, quick_edit.load_words(str(wp)), restarts)
+    if notes and save:
+        json.dump(new, open(job / "edl.json", "w"), indent=2)
+    return new, notes
+
+
+def cmd_tighten(a) -> int:
+    """Cut repeated takes and pauses longer than 0.35 s out of the plan. Draft and preview already do this by themselves."""
+    for name in a.jobs:
+        job = resolve_job(name)
+        _, notes = tighten_job(job)
+        print(f"{job.name}: {'; '.join(notes) if notes else 'already tight (no repeated takes or long pauses in the cut)'}")
+    return 0
+
+
 def cmd_preview(a) -> int:
     """Open each job in HyperFrames Studio (live preview, nothing rendered), one tab per job."""
     render_hf = hfm()
@@ -683,7 +717,13 @@ def cmd_preview(a) -> int:
         edl_p = job / "edl.json"
         edl = json.load(open(edl_p))
         place_logos(edl)
+        tight = []
+        kept_by_hand = getattr(render_hf, "hand_edited", None)   # a hand-edited project is kept as is, so its plan is too
+        if a.rebuild or not (kept_by_hand and kept_by_hand(render_hf.project_dir(job.name))):
+            edl, tight = tighten_job(job, edl, save=False)
         json.dump(edl, open(edl_p, "w"), indent=2)
+        if tight:
+            print(f"{job.name}: {'; '.join(tight)}")
         proj, status = render_hf.build(edl_p, force=a.rebuild)
         code, log = render_hf.check(proj)
         if code:   # the gate: nothing with lint/check errors opens; a Studio already showing this project is closed
@@ -1360,6 +1400,7 @@ def main() -> int:
     pv = sp.add_parser("preview"); pv.add_argument("jobs", nargs="*"); pv.add_argument("--port", type=int, default=3101)
     pv.add_argument("--rebuild", action="store_true"); pv.add_argument("--open", action="store_true"); pv.add_argument("--stop", action="store_true")
     ck = sp.add_parser("check"); ck.add_argument("jobs", nargs="+")
+    tg = sp.add_parser("tighten"); tg.add_argument("jobs", nargs="+")
     q = sp.add_parser("qa"); q.add_argument("video"); q.add_argument("--job")
     cc = sp.add_parser("capcut"); cc.add_argument("job")
     s = sp.add_parser("style"); s.add_argument("action", choices=["list", "show", "new", "set", "snapshot", "test", "versions", "restore", "undo", "preview", "import", "sheet", "push", "pull"])
@@ -1395,7 +1436,7 @@ def main() -> int:
         if a.cmd in ("draft", "doctor"):   # a tested update switches in only at the start of a new edit, never mid-fix
             deps.apply()
         deps.auto()
-    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "render": cmd_render, "preview": cmd_preview, "check": cmd_check, "qa": cmd_qa,
+    return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "tighten": cmd_tighten, "render": cmd_render, "preview": cmd_preview, "check": cmd_check, "qa": cmd_qa,
             "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library, "capcut": cmd_capcut}[a.cmd](a)
 
 

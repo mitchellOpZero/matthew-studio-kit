@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.8
+
+- Repeated takes and long pauses are cut by the kit itself, at draft and at every preview. The first take of each restart the listener heard goes, and so does any pause longer than 0.35 s inside a kept piece (or more than 0.2 s of dead air at a piece's start or end), even after an edit merged pieces back together. It prints what it cut.
+- B-roll, graphics, sounds, overlays and caption-hide windows after a removed stretch move earlier by the same amount, so they stay on the same words.
+- `bin/kit tighten <job>` runs the step on its own. To hold a beat or keep both takes when he asks: `"keep_pause": true` on a piece, or `"keep_pauses": true` / `"keep_restarts": true` in the plan.
+- A draft now records the restarts it heard in the plan (`restarts`), not only at the top of `TRANSCRIPT.txt`.
+
 ## 2.3.7
 
 - Full face can be saved as his preference: `"graphic_layout": "full"` in `my-styles/preferences.json` applies to every Short.
