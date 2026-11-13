@@ -28,9 +28,9 @@ This is the default for a creative ask, not the only mode the kit has. A referen
 
 5. **What not to place by default.** Never use canned title cards, count-up stats, sticker callouts, lower thirds, or word swipes. Use a stock kit graphic or a library block only if it genuinely is the closest match to the real thing and it passes the quality gate. Never use a full-frame sting, swipe, or any graphic that covers his face.
 
-6. **Sound.** His voice only, at -14 LUFS. No music, no stacked sound effects, unless he asks.
+6. **Sound.** His voice at -14 LUFS, with sound effects on every Short: a soft swipe on each move into and out of B-roll and a graphic (the kit adds these), and a pop or tick as message bubbles appear. Only sounds from `library/sfx/`, under his voice, never on a word, never stacked. No music unless he asks.
 
-7. **B-roll only when he asks.** Pick it from the transcript (his library, or Mixkit / Runway) and fit it into this same layout — top panel or a full-screen cutaway, never over his face. Do not add it unasked.
+7. **B-roll on most Shorts.** Add it without being asked where a clip from his library fits what he is saying, usually two to four moments, and fit it into this same layout — a full-screen cutaway or a top panel, never over his face. Skip it only when nothing fits.
 
 A 16:9 video does not use this style full-frame. Save a new style with `"shape": "16:9"` and design that video's replicas at 1920×1080, starting from these rules.
 

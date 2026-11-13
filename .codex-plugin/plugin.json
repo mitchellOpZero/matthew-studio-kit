@@ -1,6 +1,6 @@
 {
   "name": "matthew-studio-kit",
-  "version": "2.3.8",
+  "version": "2.3.9",
   "description": "Edit raw talking-head clips into finished Shorts and YouTube videos. The default look shows the real things you mention, in a clean layout. Watch the whole edit live in HyperFrames Studio before anything renders; say what to tweak and it is saved as a preference; b-roll, pictures and graphics from your Notion library; QA-gated.",
   "skills": "./skills/",
   "interface": {

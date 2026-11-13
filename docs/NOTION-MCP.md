@@ -38,7 +38,7 @@ he says OK. Nothing is ever deleted or renamed, and no field changes type.
 3. To pick up new clips later, say "refresh my library". To add a file, see
    [Getting B-roll](#getting-b-roll) below, or hand Codex the file and ask it to upload
    the file into that same Content page.
-4. This version is **2.3.8**. Say **"update my kit"** or **"update-my-kit"**. Codex runs
+4. This version is **2.3.9**. Say **"update my kit"** or **"update-my-kit"**. Codex runs
    `bin/kit update`, which is a `git pull`. Styles in `my-styles/` and files in `library/`
    stay put.
 
