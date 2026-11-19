@@ -37,6 +37,10 @@ rebuild hand-edited previews, execute a remote command or contact people.
    request may finish. The worker exits, existing local/remote records remain. `uninstall-hooks`
    removes only this kit's generated hook handlers, preserving other hooks.
 
-Legacy `bin/kit report` creates a GitHub ISSUE. Use `--dry-run` to prepare it and show the exact
-repo/title/body first. Send only after explicit approval of that prepared issue. The telemetry
-workflow does not create issues, comments, emails, scheduled sends or notifications.
+`bin/kit report --job <job> --note "<what was wrong, in his words>"` sends Mitchell one problem report (the
+kit's versions, the last commands, a few facts about the plan, the note; never a video, a transcript or a
+secret). It goes to Mitchell's webhook when one is set on this Mac, else to GitHub as an issue on the official
+kit. `--dry-run` shows the destination and the full text. It is sent without asking only after he has said yes
+once (`bin/kit report --auto on`; `--auto status` shows it, `--auto off` ends it); before that, show the dry run
+and send on his yes. The telemetry workflow itself does not create issues, comments, emails, scheduled sends or
+notifications.

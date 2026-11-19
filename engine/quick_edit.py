@@ -264,6 +264,8 @@ PREF_KEYS = {
     "graphic_layout",   # "full": he always wants his face full frame, graphics as overlays or cutaways (never a panel)
     "theme",            # one theme he always wants for his graphics (engine/theme.py); leave it off to take them in turn
     "themes",           # his own list of themes to take in turn
+    "feedback_auto",    # he said yes, once, to problems going to Mitchell without asking each time (bin/kit report --auto on)
+    "auto_update",      # false: the kit does not update itself; bin/kit update still does (engine/selfupdate.py)
     "max_pause_s",      # the longest silence he wants left between two words (the kit's own is 0.35); engine/tighten.py
 }
 
