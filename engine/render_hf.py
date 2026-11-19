@@ -123,6 +123,9 @@ def _unsupported(tl):
 def voice_track(tl, out):
     """Cleaned, leveled dialogue mastered at the existing style's loudness target."""
     st = tl["style"]; L = st["loudness"]; total = tl["frames"] / tl["fps"]; ef = float(st.get("end_fade_s", 0.15))
+    if int(tl.get("audio_rev") or 1) >= 2 and tl.get("words"):
+        # the ending fade belongs to the air after his last word, never to the word: it is as long as that air is
+        ef = max(0.0, min(ef, total - float(tl["words"][-1]["e"]) - 0.01))
     return audio_clean.master(tl['dialogue'], out, total, float(L['I']), float(L['TP']), ef)
 
 

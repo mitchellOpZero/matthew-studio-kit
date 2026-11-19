@@ -111,7 +111,12 @@ def dialogue(edl, edl_dir, src, pieces, st, total):
     cleanup = aud.get("cleanup", True)
     if not isinstance(cleanup, bool):
         qe.die('audio.cleanup must be true or false')
-    key = hashlib.sha256(json.dumps([audio_clean.VERSION, sha_file(asrc), aofs, xf, segs, total, aud.get("pre"), cleanup]).encode()).hexdigest()[:20]
+    # audio_rev 2 (plans drafted from 2.4.3): the clean-up hands each piece back late and short by its own block
+    # length, which took the end off the last word before every cut. Feed it that much more of the recording and take
+    # the same amount off the front, so every piece is whole and on time. Older plans are built exactly as before.
+    lag = audio_clean.clean_delay(SR) if cleanup and int(edl.get("audio_rev") or 1) >= 2 else 0
+    key = hashlib.sha256(json.dumps([audio_clean.VERSION, sha_file(asrc), aofs, xf, segs, total, aud.get("pre"), cleanup]
+                                    + ([f"lag{lag}"] if lag else [])).encode()).hexdigest()[:20]
     os.makedirs(DLG, exist_ok=True)
     out = os.path.join(DLG, f"{key}.wav")
     if os.path.exists(out): return out
@@ -119,14 +124,19 @@ def dialogue(edl, edl_dir, src, pieces, st, total):
     levels = []
     for j, (x, y, oo) in enumerate(segs):
         pre = h if j > 0 else 0.0; post = h if j < len(segs) - 1 else 0.0
-        args += ["-ss", f"{x - pre - aofs:.4f}", "-t", f"{y - x + pre + post:.4f}", "-i", asrc]
         L_ = y - x + pre + post
+        args += ["-ss", f"{x - pre - aofs:.4f}", "-t", f"{L_ + lag / SR:.4f}", "-i", asrc]
         fd = (f",afade=t=in:d={2 * pre:.4f}" if pre else "") + (f",afade=t=out:st={L_ - 2 * post:.4f}:d={2 * post:.4f}" if post else "")
         dl = int(round((oo - pre) * SR))
         level = audio_clean.piece_gain(asrc, x - aofs, y - x) if cleanup else {'gain_db': 0.0}
         levels.append({'cut': j, **level})
         clean = f",{audio_clean.CLEAN_FILTER},volume={level['gain_db']:.4f}dB" if cleanup else ''
-        fc.append(f"[{j}:a:0]aresample={SR},aformat=channel_layouts=stereo,atrim=duration={L_:.4f},asetpts=PTS-STARTPTS{clean}{fd},adelay={dl}S|{dl}S[a{j}]")
+        if lag:   # the piece plus `lag` samples in (silence if the recording ends first), the piece itself out
+            n = int(round(L_ * SR))
+            clean = (f",apad=whole_len={n + lag},atrim=end_sample={n + lag},{audio_clean.CLEAN_FILTER}"
+                     f",atrim=start_sample={lag}:end_sample={n + lag},asetpts=PTS-STARTPTS,volume={level['gain_db']:.4f}dB")
+        take = L_ + lag / SR
+        fc.append(f"[{j}:a:0]aresample={SR},aformat=channel_layouts=stereo,atrim=duration={take:.4f},asetpts=PTS-STARTPTS{clean}{fd},adelay={dl}S|{dl}S[a{j}]")
     fc.append("".join(f"[a{j}]" for j in range(len(segs))) + (f"amix=inputs={len(segs)}:normalize=0:duration=longest," if len(segs) > 1 else "")
               + f"apad=whole_dur={total:.6f},atrim=duration={total:.6f}" + (f",{aud['pre']}" if aud.get("pre") else "") + "[ac]")
     # whole_dur and -t both cap the length: an open-ended pad can otherwise write without end
@@ -168,6 +178,10 @@ def build(edl_path, full=True):
     fps = int(o.get("fps", 30))
     src = os.path.realpath(rel(edl["source"]))
     if not os.path.isfile(src): qe.die(f"source {src} does not exist")
+    arev = {"audio_rev": int(edl["audio_rev"])} if str(edl.get("audio_rev") or "").isdigit() and int(edl["audio_rev"]) >= 2 else {}
+    if arev:   # real word edges (engine/edges.py); a plan without audio_rev is built exactly as it always was
+        import edges
+        edges.ensure(rel(edl.get("words")), src)
     words = qe.load_words(rel(edl.get("words")))
     pieces = qe.build_pieces(edl, words, st, fps)
     owords, total = qe.map_words(words, pieces)
@@ -265,7 +279,7 @@ def build(edl_path, full=True):
         st = dict(st); st["face_focus_y"] = face; style["face_focus_y"] = face
     font_file = qe._font_path(st); FONT = media_key("font", font_file)
     media[FONT] = font_file
-    tl = {"fps": fps, "width": W, "height": H, "frames": frames, "src_w": iw, "src_h": ih,
+    tl = {"fps": fps, "width": W, "height": H, "frames": frames, "src_w": iw, "src_h": ih, **arev,
           "audio_processing": {"pipeline": audio_clean.VERSION, "cleanup": (edl.get("audio") or {}).get("cleanup", True)},
           "style_name": edl.get("style_name") or "", "style": style, "font": FONT,
           # this video's own graphics (.work/<job>/graphics/<name>/), never saved into a style unless he asks

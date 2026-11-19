@@ -358,11 +358,13 @@ def load_words(p: Path) -> list[dict]:
     return d["words"] if isinstance(d, dict) else d
 
 
-def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> list[dict]:
+def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08, tail: float | None = None,
+               duration: float | None = None) -> list[dict]:
     """Keep every word; drop pauses longer than `pause` and filler words. Retakes are Codex's call (see the skill).
 
     A filler always splits the cut, even when the words on either side are close. Padding
     stays outside the word and outside the filler, so a cut never starts or ends inside a word.
+    `tail`: the air kept after the very last word (room for the ending fade), up to the end of the recording.
     """
     fillers = [w for w in words if norm(w["w"]) in FILLERS]
     keep = [w for w in words if norm(w["w"]) not in FILLERS]
@@ -396,6 +398,9 @@ def draft_cuts(words: list[dict], pause: float = 0.35, pad: float = 0.08) -> lis
         lo = min(lo, c["in"])
         hi = max(hi, c["out"])
         out.append({"in": round(max(0.0, lo), 3), "out": round(hi, 3)})
+    if out and tail is not None and not any(float(f["start"]) >= cuts[-1]["out"] for f in fillers):
+        end = cuts[-1]["out"] + max(pad, tail)
+        out[-1]["out"] = round(max(out[-1]["out"], min(end, duration) if duration else end), 3)
     return out
 
 
@@ -514,12 +519,22 @@ def cmd_draft(a) -> int:
     src_link.symlink_to(clip)
     shutil.copy2(wp, job / "inputs" / "words.json")
     st = json.load(open(style_dir(style) / "style.json"))
+    # Cuts follow the sound, not the speech model's guess at it: every word's edges are moved to where the word really
+    # starts and stops in the recording (engine/edges.py), and his own pause limit applies ("max_pause_s").
+    import edges as _edges, quick_edit as _qe, tighten as _tighten
+    if _edges.ensure(job / "inputs" / "words.json", clip):
+        words = load_words(job / "inputs" / "words.json")
+    look = _qe.resolve_style({"style_name": style})
+    pause, pad, _ = _tighten.limits(look)
+    raw = json.load(open(wp))
     edl = {
         "name": name,
         "style_name": style,
         "source": f"inputs/{clip.name}",
         "words": "inputs/words.json",
-        "cuts": draft_cuts(words),
+        "audio_rev": AUDIO_REV,
+        "cuts": draft_cuts(words, pause, pad, tail=float(look.get("end_fade_s", 0.15)) + 0.03,
+                           duration=raw.get("duration") if isinstance(raw, dict) else None),
         "keywords": draft_keywords(words),
         "caption_breaks": [],
         "overlays": [],
@@ -529,7 +544,7 @@ def cmd_draft(a) -> int:
         "output": {"w": 1920, "h": 1080, "fps": 30} if (a.long or st.get("shape") == "16:9") else {"w": 1080, "h": 1920, "fps": 30},
         "blocks": [],
     }
-    import quick_edit as _qe, theme as _theme
+    import theme as _theme
     th = _theme.next_in_turn(_qe.load_preferences())   # one theme for this video's graphics; the next video gets another
     if th:
         edl["theme"] = th
@@ -727,6 +742,19 @@ def cmd_check(a) -> int:
     return 1 if bad else 0
 
 
+AUDIO_REV = 2   # how a plan's voice is cut and built. 2 (plans drafted from 2.4.3): cuts follow the real sound of each
+                # word, his own pause limit applies, the clean-up no longer shifts or shortens a piece, and the ending
+                # fade starts after his last word. A plan without it is built exactly as before, so nothing he has
+                # already approved or repaired by hand changes.
+
+
+def audio_rev(edl: dict) -> int:
+    try:
+        return int(edl.get("audio_rev") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
 def tighten_job(job: Path, edl: dict | None = None, save: bool = True) -> tuple[dict, list[str]]:
     """Cut repeated takes and long pauses out of a job's plan the same way every time (engine/tighten.py). The plan on
     disk is rewritten only when something changed. Returns (plan, notes)."""
@@ -741,14 +769,20 @@ def tighten_job(job: Path, edl: dict | None = None, save: bool = True) -> tuple[
     restarts = edl.get("restarts")
     if restarts is None:
         restarts = tighten.transcript_restarts(str(job))
-    new, notes = tighten.tighten_plan(edl, quick_edit.load_words(str(wp)), restarts)
+    lim, quiet = (), None
+    if audio_rev(edl) >= 2:
+        import edges
+        src = edl.get("source") or ""
+        edges.ensure(wp, src if os.path.isabs(src) else job / src)
+        lim, quiet = tighten.limits(quick_edit.resolve_style(edl)), edges.quiet(wp)
+    new, notes = tighten.tighten_plan(edl, quick_edit.load_words(str(wp)), restarts, *lim, quiet=quiet)
     if notes and save:
         json.dump(new, open(job / "edl.json", "w"), indent=2)
     return new, notes
 
 
 def cmd_tighten(a) -> int:
-    """Cut repeated takes and pauses longer than 0.35 s out of the plan. Draft and preview already do this by themselves."""
+    """Cut repeated takes and pauses longer than his limit (0.35 s, or "max_pause_s") out of the plan. Draft and preview already do this by themselves."""
     for name in a.jobs:
         job = resolve_job(name)
         _, notes = tighten_job(job)
