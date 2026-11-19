@@ -19,9 +19,26 @@ PAD = 0.08        # air kept after the last word and before the next one
 EDGE = 0.2        # the longest silence left at the start or end of a kept piece before it is trimmed back to PAD
 MIN_PIECE = 0.12  # a sliver shorter than this is dropped rather than kept as its own piece
 MIN_RESTART = 0.1 # a restart that only grazes a kept piece (already cut by hand) is left alone
+KIT_PAUSE = PAUSE
+MIN_PAUSE = 0.1   # his own limit (style or preferences "max_pause_s") is never taken below this
 TIMED = ("broll", "blocks", "sfx", "overlays", "graphics")
 
 _RESTART_LINE = re.compile(r"^\s+([\d.]+)-([\d.]+)\s+first take\s+\"(.*)\"\s+retake starts\s+([\d.]+)\s*$")
+
+
+def limits(st=None):
+    """(pause, pad, edge) for a plan: the kit's own unless his style or preferences set "max_pause_s" (the longest
+    silence he wants between two words). The air kept around a word shrinks with it, so a cut pause is never left
+    longer than his limit, and a piece's own edges are trimmed to the same air."""
+    try:
+        pause = float((st or {}).get("max_pause_s") or PAUSE)
+    except (TypeError, ValueError):
+        pause = PAUSE
+    if pause >= PAUSE:
+        return pause, PAD, EDGE
+    pause = max(MIN_PAUSE, pause)
+    pad = round(pause / 2 - 0.02, 4)     # a word's last sound fades for a moment after the cut point: leave room for it
+    return pause, pad, round(pad + 0.005, 4)
 
 
 def _span(w):
@@ -67,8 +84,15 @@ def _out_pos(cuts, t):
     return None
 
 
-def tighten_plan(edl, words, restarts=None):
-    """(new plan, notes). The plan is returned unchanged, with no notes, when there is nothing to tighten."""
+def tighten_plan(edl, words, restarts=None, pause=PAUSE, pad=PAD, edge=EDGE, quiet=None):
+    """(new plan, notes). The plan is returned unchanged, with no notes, when there is nothing to tighten.
+    `pause`, `pad`, `edge`: see `limits` (the kit's own values unless he set a limit).
+    `quiet`: the recording's real silences (engine/edges.py). With them, a pause is cut wherever the sound stops for
+    longer than `pause`, including one the speech model hid inside a word."""
+    PAUSE, PAD, EDGE = pause, pad, edge
+    # a real silence is shorter than the pause he hears (a word's last sound fades into it), so with his own limit a
+    # silence is trimmed as soon as trimming leaves the air around the words whole
+    QUIET = PAUSE if PAUSE >= KIT_PAUSE else 2 * PAD + 0.012
     cuts = edl.get("cuts") or []
     if not cuts or not words:
         return edl, []
@@ -88,8 +112,20 @@ def tighten_plan(edl, words, restarts=None):
             a, b = float(c["in"]), float(c["out"])
             inside = [(s, e) for s, e in spans if s >= a - 1e-3 and e <= b + 1e-3]
             for (s1, e1), (s2, e2) in zip(inside, inside[1:]):
-                if s2 - e1 > PAUSE + 1e-6 and (s2 - PAD) - (e1 + PAD) > 0.02:
+                if s2 - e1 > PAUSE + 1e-6 and (s2 - PAD) - (e1 + PAD) > 0.012:
                     remove.append((e1 + PAD, s2 - PAD, "pause"))
+            for qa, qb in quiet or ():
+                lo, hi = max(float(qa), a), min(float(qb), b)
+                if hi - lo <= 0:
+                    continue
+                if lo <= a + 1e-3:                      # silence at the head of the piece
+                    if hi - lo > EDGE + 1e-6:
+                        remove.append((a, hi - PAD, "pause"))
+                elif hi >= b - 1e-3:                    # at its tail (the video's own ending keeps its air)
+                    if c is not cuts[-1] and hi - lo > EDGE + 1e-6:
+                        remove.append((lo + PAD, b, "pause"))
+                elif hi - lo > QUIET + 1e-6 and (hi - PAD) - (lo + PAD) > 0.01:
+                    remove.append((lo + PAD, hi - PAD, "pause"))
             if not inside:
                 continue
             # dead air at a piece's edges, unless the edge cuts through a word (then the edge is someone's choice)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.4.3
+
+- **Words are no longer cut off, and pauses are cut where the sound really stops.** New plans (`"audio_rev": 2`, written by `bin/kit draft`) take every cut from the recording itself: each word's edges are moved to where the word truly starts and stops (the speech model often ends a word before its last consonant, starts it after its first syllable, or gives it no length at all), and pauses are found where the sound goes quiet, including ones the transcript hides inside a word.
+- **The voice clean-up took the end off every piece.** Its noise reducer handed each kept piece back 25 ms late and 25 ms short, so the last sound before every cut was lost. New plans get each piece whole and on time.
+- **The ending fade landed on his last word.** New plans keep enough air after the last word for the fade, and the fade never starts before that word has ended.
+- **His own pause limit.** `"max_pause_s"` in `my-styles/preferences.json` (or a style) sets the longest silence left between two words; the kit's own stays 0.35 s. With `0.15`, no gap between words is longer than 0.15 s, with no hand re-timing.
+- Plans without `"audio_rev"` are built exactly as before, so videos he approved or that were repaired by hand do not change. To bring one over, add `"audio_rev": 2` to its plan and remove the hand repairs (`audio.pre` shifts, `"end_fade_s": 0`).
+
 ## 2.4.2
 
 - **HyperFrames' own skills are installed and used, not hidden.** `bin/kit prepare` and `bin/kit update` now run HyperFrames' own installer, which puts its skills (`hyperframes`, `hyperframes-cli`, `hyperframes-registry`, `media-use`, `style-sampling`, `reverse-any-video`, `slideshow`, `figma`, `remotion-to-hyperframes`) in `~/.agents/skills`, where Codex finds them, from the same release as the HyperFrames in use. It installs what is missing or out of date, is quick when nothing is, and changes nothing in the kit folder, so updates stay clean. If it can't reach the internet it says so and carries on.

@@ -12,6 +12,36 @@ ACTIVE_FLOOR_DB = -36.0
 MAX_GAIN_DB = 8.0
 
 
+_DELAY = {}
+
+
+def clean_delay(rate=48000):
+    """How late CLEAN_FILTER hands its sound back, in samples at `rate`. The noise reducer works in blocks and returns
+    each piece that much late and that much short, so the end of a word was lost at every cut. Measured once on this
+    Mac's ffmpeg with a burst of noise (0 when it can't be measured, or when a newer ffmpeg makes up for it itself)."""
+    if rate in _DELAY:
+        return _DELAY[rate]
+    d = 0
+    try:
+        rng = np.random.default_rng(7)
+        x = np.zeros(rate, dtype='<f4')
+        a = rate // 2
+        x[a:a + rate // 50] = (rng.standard_normal(rate // 50) * 0.3).astype('<f4')
+        run = lambda af: np.frombuffer(subprocess.run(
+            ['ffmpeg', '-v', 'error', '-nostdin', '-f', 'f32le', '-ar', str(rate), '-ac', '1', '-i', '-', '-af', af,
+             '-f', 'f32le', '-'], input=x.tobytes(), capture_output=True, timeout=60).stdout, dtype='<f4').astype(np.float64)
+        y = run(CLEAN_FILTER)
+        if len(y) >= rate // 2:
+            lags = range(0, rate // 10)
+            seg = x[a:a + rate // 50].astype(np.float64)
+            best = max(lags, key=lambda k: float(np.dot(seg, y[a + k:a + k + len(seg)])) if a + k + len(seg) <= len(y) else -1.0)
+            d = int(best) if best >= 8 else 0
+    except Exception:
+        d = 0
+    _DELAY[rate] = d
+    return d
+
+
 def piece_gain(source, start, duration):
     """Mean energy of active 10 ms windows; silence never gets a positive gain.
 
