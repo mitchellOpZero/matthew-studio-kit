@@ -26,20 +26,24 @@ gh auth login && gh auth setup-git          # sign in to GitHub once
 git clone https://github.com/mitchellOpZero/matthew-studio-kit ~/ColdApproach/matthew-studio-kit
 cd ~/ColdApproach/matthew-studio-kit
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-bin/kit prepare                                # HyperFrames + its Chrome (newer versions follow on their own)
+bin/kit prepare                                # HyperFrames, its Chrome and its own skills (newer versions follow on their own)
 bin/kit doctor                                 # every line OK, shows the kit version
 bin/kit style import ~/ColdApproach/matthew-edit-kit   # only if you used the old kit
 # open the folder in the Codex app and trust it (turns on .codex/rules/kit.rules, which previews and renders need)
 ```
 
 ## Versions and updates
-- `bin/kit version` shows the version and exact commit. This release is **2.4.1**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2, 2.3.3, 2.3.4, 2.3.5, 2.3.6, 2.3.7, 2.3.8, 2.3.9, 2.4.0. See `CHANGELOG.md`.
+- `bin/kit version` shows the version and exact commit. This release is **2.4.2**. Older releases: 2.0.0, 2.0.1, 2.0.2, 2.2.0, 2.2.1, 2.3.0, 2.3.1, 2.3.2, 2.3.3, 2.3.4, 2.3.5, 2.3.6, 2.3.7, 2.3.8, 2.3.9, 2.4.0, 2.4.1. See `CHANGELOG.md`.
 - Update the kit: say "update my kit" or "update-my-kit" (Codex runs `bin/kit update`, a `git pull` of this repo).
 - HyperFrames and the Python packages update on their own: once a day the kit looks for newer versions (same release
   line), tests them on a short clip against the current ones (same words heard, same frames, same audio, same QA
   verdict) and switches them in at the next edit only if they pass. `engine/hyperframes.json` and `requirements.txt`
   are the floor, the versions the kit was released with. `bin/kit deps status` shows what's in use, `bin/kit deps rollback`
   goes back. Log: `.cache/deps/log.txt`.
+- HyperFrames' own skills (how to build and animate, the library, media, slideshows, remakes) are installed into
+  `~/.agents/skills` by `bin/kit prepare` and refreshed by `bin/kit update`, from the same release as the HyperFrames
+  in use. Nothing in the kit folder changes. Talking-head edits still run through `bin/kit`; other kinds of video
+  (a faceless explainer, a motion graphic, a slideshow, a remake) use those skills directly (`AGENTS.md`).
 - Your look preferences live in `my-styles/`, your library in `library/`. Updates never touch them.
 
 ## Use it (just ask Codex)

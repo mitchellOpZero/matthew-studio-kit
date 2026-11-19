@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.2
+
+- **HyperFrames' own skills are installed and used, not hidden.** `bin/kit prepare` and `bin/kit update` now run HyperFrames' own installer, which puts its skills (`hyperframes`, `hyperframes-cli`, `hyperframes-registry`, `media-use`, `style-sampling`, `reverse-any-video`, `slideshow`, `figma`, `remotion-to-hyperframes`) in `~/.agents/skills`, where Codex finds them, from the same release as the HyperFrames in use. It installs what is missing or out of date, is quick when nothing is, and changes nothing in the kit folder, so updates stay clean. If it can't reach the internet it says so and carries on.
+- Setup no longer treats `hyperframes` or `media-use` skills as clashes to move into `~/codex-skills-backup/`, and `bin/kit doctor` no longer lists them as ones to move aside. The only clash left is the old Matthew Edit Kit plugin.
+- Building or restyling a graphic: Codex reads the HyperFrames skills first (`hyperframes` and its motion, look, overlays, format and runtimes references, and `hyperframes-registry`). HyperFrames folded its older `hyperframes-animation`, `hyperframes-creative`, `hyperframes-keyframes` and `motion-graphics` skills into those; the instructions name both.
+- Videos that aren't his talking-head clip (a faceless explainer, a standalone motion graphic, a slideshow, a remake of a reference video) follow the HyperFrames skills directly. `reverse-any-video` needs a paid HyperFrames Pro login. His talking-head Shorts and YouTube videos still run through `bin/kit`, unchanged.
+
 ## 2.4.1
 
 - His own standing rules live in `my-styles/RULES.md`, which Codex reads before every edit and which wins over the kit's instructions. Rules written into the kit's own files stopped updates from installing; they are never written there now.
