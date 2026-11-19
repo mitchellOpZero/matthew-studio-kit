@@ -11,6 +11,14 @@ Two rules decide almost everything:
 1. **Use the HyperFrames library.** Any piece may be used. Adjust a library piece before you draw anything of your own.
 2. **One theme per video.** Every graphic in a video wears the same colours.
 
+## Read HyperFrames' skills before you build or restyle
+Adjusting a piece's look or motion, or building a new graphic, is HyperFrames work. Before you write any HTML, CSS or GSAP for one, read HyperFrames' own skills (in `~/.agents/skills/`, put there by `bin/kit prepare`) and build the way they say:
+- **`hyperframes`** first: the composition contract in its `SKILL.md`, then `references/motion.md` (animation and keyframes: eases, titles, cuts, punch-ins, holds), `references/look.md` (the creative side: type, colour, layout), `references/overlays.md` (cards over a talking head), and `references/format.md` and `references/runtimes.md` (attributes, GSAP and the other animation runtimes).
+- **`hyperframes-registry`**: what each library piece is and how it is meant to be changed.
+- On an older install the same knowledge is split across `hyperframes-animation`, `hyperframes-creative`, `hyperframes-keyframes` and `motion-graphics`. Read those when they are the ones installed.
+
+The kit still decides the rest on his videos: his words, the video's one theme, where the graphic sits, and `bin/kit blocks`, `bin/kit preview` and `bin/kit check` in place of the `npx hyperframes` commands those skills name. If the skills are missing, run `bin/kit prepare`.
+
 ## 1. Pick the pieces
 For each moment that should have a graphic, in this order:
 1. **What he already likes:** `bin/kit graphics find <words>`. These are graphics he said he liked and kept. Reuse one with `bin/kit graphics use <name> --job <job>` (same design and motion, this video's words).
@@ -44,7 +52,7 @@ When he gives a reference video or picture ("make it like this"):
 
 ## 5. Adjust a piece, or build one
 - **Adjust first.** A piece that is close but not right gets a restyle, not a replacement: `graphics/_looks/<name>.css` (added after the piece's own styles), or `graphics/_looks/vertical/<name>.css` for vertical videos only. Many type pieces are built for a wide frame and keep their words on one small line; the vertical looks stack the words big. The kit gives each graphic two sizes that fit its own words: `var(--kit-word-fit)` (one word per line) and `var(--kit-line-fit)` (a whole line).
-- **A new graphic, only when nothing fits:** `.work/<job>/graphics/<name>/<name>.html` (a HyperFrames composition: a root `data-composition-id`, `data-width`, `data-height`, `data-duration`, and one paused GSAP timeline registered as `window.__timelines["<id>"]`; no timers, no random values; its own `@font-face` with the font file in its `assets/`). Theme colours by name. Start from the closest library piece's file when there is one. `bin/kit blocks test <name> --job <job>` must print OK.
+- **A new graphic, only when nothing fits:** read HyperFrames' skills first (top of this file), then write `.work/<job>/graphics/<name>/<name>.html` (a HyperFrames composition: a root `data-composition-id`, `data-width`, `data-height`, `data-duration`, and one paused GSAP timeline registered as `window.__timelines["<id>"]`; no timers, no random values; its own `@font-face` with the font file in its `assets/`). Theme colours by name. Start from the closest library piece's file when there is one. `bin/kit blocks test <name> --job <job>` must print OK.
 - **Keep what he likes:** when he says he likes a graphic, `bin/kit graphics save <name> --job <job> --about "<what it shows, when to use it>"`. It is then found by `bin/kit graphics find`. Don't save one he hasn't said he likes.
 
 ## 6. Place it and look

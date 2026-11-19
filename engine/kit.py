@@ -4,7 +4,7 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
 
   kit version                                  the kit's version and exact commit
   kit doctor                                   check ffmpeg, Python packages, Node + HyperFrames, fonts, the speech model
-  kit prepare                                  first run: fetch the tested HyperFrames and its Chrome (needs internet once)
+  kit prepare                                  fetch the tested HyperFrames, its Chrome and its own skills (needs internet)
   kit update                                   pull the newest kit, then bring HyperFrames and the Python packages up to date
   kit deps status | check | rollback           the outside libraries: they update on their own once a day, tested first (engine/deps.py)
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
@@ -154,17 +154,36 @@ def py() -> str:
 
 # Codex also loads skills installed elsewhere on the Mac. Ones with these words could take over a video request.
 CLASH = re.compile(r"video|edit|caption|short|reel|remotion|hyperframes|media|motion|episode|style|qa|render", re.I)
+# HyperFrames' own skills are wanted, never a clash: bin/kit prepare installs them (install_hf_skills).
+HF_SKILL = re.compile(r"^(hyperframes(-.+)?|media-use)$")
+
+
+def hf_skill_names() -> set[str]:
+    """Names HyperFrames' skill installer recorded as its own (~/.agents/.skill-lock.json)."""
+    state = os.environ.get("XDG_STATE_HOME")
+    try:
+        lock = json.loads((Path(state) / "skills" / ".skill-lock.json" if state else Path.home() / ".agents" / ".skill-lock.json").read_text()).get("skills", {})
+    except Exception:
+        return set()
+    return {n for n, e in lock.items() if "heygen-com/hyperframes" in f"{e.get('source')} {e.get('sourceUrl')}".lower()}
+
+
+def hf_skills() -> list[str]:
+    """HyperFrames' own skills where Codex finds them (~/.agents/skills)."""
+    d, own = Path.home() / ".agents" / "skills", hf_skill_names()
+    return [p.name for p in sorted(d.iterdir()) if (p / "SKILL.md").exists() and (p.name in own or HF_SKILL.match(p.name))] if d.is_dir() else []
 
 
 def other_skills() -> list[str]:
-    """Video-related skills Codex can see outside this kit (user skill folders and installed plugins)."""
-    found = []
+    """Video-related skills Codex can see outside this kit (user skill folders and installed plugins), HyperFrames' own aside."""
+    found, own = [], hf_skill_names()
+    clash = lambda name: CLASH.search(name) and name not in own and not HF_SKILL.match(name)
     for d in (Path.home() / ".codex" / "skills", Path.home() / ".agents" / "skills"):
         if d.is_dir():
-            found += [f"{p.name} ({d})" for p in sorted(d.iterdir()) if (p / "SKILL.md").exists() and CLASH.search(p.name)]
+            found += [f"{p.name} ({d})" for p in sorted(d.iterdir()) if (p / "SKILL.md").exists() and clash(p.name)]
     cache = Path.home() / ".codex" / "plugins" / "cache"
     if cache.is_dir():
-        found += [f"{p.parent.name} (plugin)" for p in sorted(cache.glob("*/*/skills/*/SKILL.md")) if CLASH.search(p.parent.name)
+        found += [f"{p.parent.name} (plugin)" for p in sorted(cache.glob("*/*/skills/*/SKILL.md")) if clash(p.parent.name)
                   and "matthew-edit-kit" not in str(p) and "matthew-studio-kit" not in str(p)]
     return found
 
@@ -255,23 +274,50 @@ def cmd_doctor(a) -> int:
     line(bool(gha), "GitHub login (kit updates, and problem reports to Mitchell)", "brew install gh, then gh auth login" if not gh else "gh auth login")
     sm = [p / "hub" / MODEL for p in (Path.home() / ".cache/huggingface", KIT / ".cache/huggingface")]
     line(any(p.exists() for p in sm), "speech model small.en (464 MB)", "it downloads on the first transcribe; needs internet once")
+    hfs = hf_skills()
+    print(f"NOTE HyperFrames' own skills in ~/.agents/skills: {', '.join(hfs)}" if "hyperframes" in hfs else
+          f"NOTE HyperFrames' own skills aren't installed yet (his videos edit fine without them)\n      -> cd {KIT} && bin/kit prepare")
     others = other_skills()
     if others:
-        print(f"NOTE {len(others)} other video skill(s) on this Mac that Codex can see. The kit ignores them (AGENTS.md), "
-              "but if one ever takes over an edit, move it aside (skills/setup step 8):")
+        print(f"NOTE {len(others)} other video skill(s) on this Mac that Codex can see. His talking-head videos follow the kit's "
+              "own skills (AGENTS.md), not these:")
         for o in others:
             print(f"       {o}")
     print("Ready to edit." if ok else "Fix the lines marked FIX, then run kit doctor again.")
     return 0 if ok else 1
 
 
+def install_hf_skills(hfr) -> None:
+    """HyperFrames' own skills (how to build and animate, the library, media, slideshows, remakes), from the same release
+    as the HyperFrames in use. HyperFrames' installer puts them in ~/.agents/skills, where Codex finds them, and
+    ~/.claude/skills: nothing in the kit folder changes, so `git pull` stays clean. It installs what's missing or out of
+    date and is quick when nothing is. Never stops prepare: his videos edit without them."""
+    e = hfr.env()
+    e.pop("HYPERFRAMES_SKIP_SKILLS", None)   # every other kit call keeps it, so a render never installs anything
+    if os.path.realpath(e.get("HOME") or Path.home()) != os.path.realpath(Path.home()):
+        print("NOTE HyperFrames' own skills weren't installed: the home folder can't be written from here (sandbox). "
+              "Run bin/kit prepare again from a trusted kit folder.")
+        return
+    try:
+        subprocess.call(hfr.hf() + ["skills"], env=e, stdin=subprocess.DEVNULL, timeout=900)
+    except (OSError, subprocess.TimeoutExpired) as err:
+        print(f"HyperFrames skills: {err}")
+    names = hf_skills()
+    if "hyperframes" in names:
+        print(f"HyperFrames' own skills are ready in ~/.agents/skills: {', '.join(names)}.")
+    else:
+        print("NOTE couldn't install HyperFrames' own skills (it needs the internet and git). His videos edit fine without "
+              "them; run bin/kit prepare again later.")
+
+
 def cmd_prepare(a) -> int:
-    """First run: fetch the tested HyperFrames and its Chrome (once, about 200 MB)."""
+    """First run, and after every update: the tested HyperFrames and its Chrome (once, about 200 MB), then its skills."""
     hfr = hfm()
     for args in (["--version"], ["browser", "ensure"]):
         if subprocess.call(hfr.hf() + args, env=hfr.env()) != 0:
             die(f"couldn't get HyperFrames ({' '.join(args)}). It needs the internet once.")
-    print(f"HyperFrames {hfr.hf_version()} and its Chrome are ready.")
+    print(f"HyperFrames {hfr.hf_version()} and its Chrome are ready.", flush=True)
+    install_hf_skills(hfr)
     return 0
 
 
