@@ -6,6 +6,9 @@ preview in HyperFrames Studio (he watches the whole edit before anything renders
   kit doctor                                   check ffmpeg, Python packages, Node + HyperFrames, fonts, the speech model
   kit prepare                                  fetch the tested HyperFrames, its Chrome and its own skills (needs internet)
   kit update                                   pull the newest kit, then bring HyperFrames and the Python packages up to date
+                                               (the kit also updates itself once a day, at the start of a new edit: engine/selfupdate.py)
+  kit voice <clip|job> [--name <job>]          his voice alone, cut and cleaned, with every word's time, for a video that
+                                               is not his talking-head clip (a faceless explainer, a stick-figure story)
   kit deps status | check | rollback           the outside libraries: they update on their own once a day, tested first (engine/deps.py)
   kit transcribe <clip>                        word timings (cached by the clip's sha256)
   kit draft <clip> [--style <name>] [--long]   make a job folder with a first edit plan (edl.json) + the transcript to review
@@ -779,6 +782,44 @@ def tighten_job(job: Path, edl: dict | None = None, save: bool = True) -> tuple[
     if notes and save:
         json.dump(new, open(job / "edl.json", "w"), indent=2)
     return new, notes
+
+
+def cmd_voice(a) -> int:
+    """His voice alone, for a video that isn't his talking-head clip (a faceless explainer, a stick-figure story, a
+    slideshow) and is built with HyperFrames' own skills. The recording goes through the same steps as any kit video:
+    repeated takes and pauses cut from the real sound, whole words, his pause limit, clean-up, loudness. Writes
+    .work/<job>/voice/voice.wav (the only voice the video uses) and words.json (every word with its time on that file)."""
+    target = a.clip
+    job = WORK / target
+    if not (job / "edl.json").is_file():
+        clip = Path(target).expanduser().resolve()
+        if not clip.is_file():
+            die(f"no job or clip called {target!r}. Give his recording (a file) or a job that kit draft / kit voice made.")
+        name = re.sub(r"-+", "-", re.sub(r"[^a-z0-9_-]+", "-", (a.name or clip.stem).lower())).strip("-")[:40] or "clip"
+        job = WORK / name
+        if a.replace or not (job / "edl.json").is_file():
+            rc = cmd_draft(argparse.Namespace(clip=str(clip), style=None, name=name, long=False, replace=a.replace))
+            if rc:
+                return rc
+    edl, tight = tighten_job(job)
+    if tight:
+        print(f"{job.name}: {'; '.join(tight)}")
+    render_hf = hfm()
+    import timeline
+    tl, _ = timeline.build(str(job / "edl.json"))
+    out = job / "voice"
+    out.mkdir(exist_ok=True)
+    wav = out / "voice.wav"
+    render_hf.voice_track(tl, str(wav))
+    total = tl["frames"] / tl["fps"]
+    json.dump({"duration": round(total, 3), "source": edl.get("source"), "words": tl["words"]}, open(out / "words.json", "w"), indent=1)
+    src = sum(float(c["out"]) - float(c["in"]) for c in edl["cuts"])
+    print(f"voice: {wav}  ({total:.2f} s, {len(tl['words'])} words, {len(edl['cuts'])} kept pieces)")
+    print(f"words: {out / 'words.json'}  (each word's start and end on that file, in seconds)")
+    print("Use voice.wav as the video's only voice and time every scene and on-screen word from words.json. "
+          "Never lay his raw recording under the video: its pauses and repeated takes are still in it. "
+          f"To drop a line or a retake, delete that piece from {job / 'edl.json'} and run kit voice {job.name} again.")
+    return 0
 
 
 def cmd_tighten(a) -> int:
@@ -1670,19 +1711,35 @@ def main() -> int:
     sp.add_parser("update"); sp.add_parser("prepare")
     u = sp.add_parser("deps"); u.add_argument("action", choices=["status", "check", "rollback"])
     rp = sp.add_parser("report"); rp.add_argument("--note", default=""); rp.add_argument("--dry-run", action="store_true")
+    rp.add_argument("--job", default=""); rp.add_argument("--auto", choices=["on", "off", "status"])
+    vo = sp.add_parser("voice"); vo.add_argument("clip"); vo.add_argument("--name"); vo.add_argument("--replace", action="store_true")
     a = ap.parse_args()
     os.environ["PATH"] = env()["PATH"]   # Homebrew's ffmpeg-full is keg-only: every module and helper must find it
     if a.cmd == "report":
-        return report.send(a.note, kit_version(), hfm().hf_version(), dry=a.dry_run)
+        if a.auto:
+            if a.auto != "status":
+                report.set_auto(a.auto == "on")
+            print("Problems he mentions are sent to Mitchell without asking each time." if report.auto_on() else
+                  "Each report is shown to him and sent only when he says yes.")
+            return 0
+        return report.send(a.note, kit_version(), hfm().hf_version(), dry=a.dry_run, job=a.job)
     if a.cmd not in ("version", "deps", "update", "prepare"):
         busy = KIT / ".cache" / "deps" / "busy" / str(os.getpid())   # a library switch waits while a command is running
         busy.parent.mkdir(parents=True, exist_ok=True); busy.touch()
         atexit.register(lambda: busy.unlink(missing_ok=True))
-        if a.cmd in ("draft", "doctor"):   # a tested update switches in only at the start of a new edit, never mid-fix
+        import selfupdate
+        new_edit = a.cmd in ("draft", "doctor", "voice")
+        if selfupdate.auto(new_edit) and not os.environ.get("KIT_UPDATED"):
+            # the kit's own files just changed: start this command again on them
+            os.environ["KIT_UPDATED"] = "1"
+            busy.unlink(missing_ok=True)
+            os.execv(sys.executable, [sys.executable, os.path.abspath(__file__), *sys.argv[1:]])
+        selfupdate.after()
+        if new_edit:   # a tested update switches in only at the start of a new edit, never mid-fix
             deps.apply()
         deps.auto()
     return {"version": cmd_version, "doctor": cmd_doctor, "update": cmd_update, "prepare": cmd_prepare, "deps": cmd_deps, "transcribe": cmd_transcribe, "draft": cmd_draft, "tighten": cmd_tighten, "render": cmd_render, "preview": cmd_preview, "check": cmd_check, "qa": cmd_qa,
-            "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library, "capcut": cmd_capcut, "theme": cmd_theme}[a.cmd](a)
+            "style": cmd_style, "graphics": cmd_graphics, "blocks": cmd_blocks, "library": cmd_library, "capcut": cmd_capcut, "theme": cmd_theme, "voice": cmd_voice}[a.cmd](a)
 
 
 def logged_main() -> int:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.5
+
+- **His voice for a faceless video: `bin/kit voice <recording> --name <job>`.** A video built with HyperFrames' own skills (a stick-figure story, an explainer) skipped the kit's voice work, so his raw recording went in with its pauses and dead air. This command runs the recording through the same steps as any kit video and writes `voice.wav` (the only voice the video uses) and `words.json` (every word's time on it).
+- **The kit updates itself.** Once a day it looks for a newer kit; a newer one switches in at the start of the next new edit, never mid-edit, and only when no kit file on the Mac was changed in a way the update would overwrite (it says so when one was). `"auto_update": false` in `my-styles/preferences.json` turns it off.
+- **Problems reach Mitchell.** `bin/kit report --job <job> --note "<his words>"` now goes to Mitchell's webhook when one is set on the Mac (`~/.config/matthew-studio-kit/report.json`), else to the official kit on GitHub (it used to go to the Mac's own fork, where nobody read it). It includes a few facts about the job's plan. Codex sends one whenever he says a result is wrong, after fixing it for him; it is sent without asking only once he has said yes (`bin/kit report --auto on`).
+
 ## 2.4.4
 
 - **A word next to a hidden pause no longer drops out of the captions.** 2.4.3 cut pauses the transcript hides inside a word, but the word's time still covered the pause, so the word could fall into the cut and vanish from the captions (its sound was still there). Each word's time now sits on its own sound, off the silence before, after or inside it.
