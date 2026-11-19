@@ -154,7 +154,7 @@ class InstructionTests(unittest.TestCase):
 
     def test_release_notes(self):
         self.assertIn("## 2.4.2", (ROOT / "CHANGELOG.md").read_text())
-        self.assertIn(json.loads((ROOT / "plugin.json").read_text())["version"], ("2.4.2", "2.4.3", "2.4.4", "2.4.5"))
+        self.assertIn(json.loads((ROOT / "plugin.json").read_text())["version"], ("2.4.2", "2.4.3", "2.4.4", "2.4.5", "2.4.6"))
 
 
 if __name__ == "__main__":

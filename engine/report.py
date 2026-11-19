@@ -26,7 +26,7 @@ REPO = "mitchellOpZero/matthew-studio-kit"   # used when the clone's origin isn'
 LABEL = "kit-report"
 KEEP = 2000        # log lines kept
 PER_DAY = 12       # reports sent per day at most; the rest are saved locally
-WEBHOOK = Path.home() / ".config" / "matthew-studio-kit" / "report.json"   # {"url": "...", "bearer": "..."}: never in the kit folder
+WEBHOOK = Path.home() / ".config" / "matthew-studio-kit" / "report.json"   # {"url": "...", "bearer": "...", "format"?: "text"}: never in the kit folder
 PREFS = KIT / "my-styles" / "preferences.json"
 
 SECRETS = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|secret_[A-Za-z0-9]{20,}|ntn_[A-Za-z0-9]{20,}"
@@ -84,11 +84,18 @@ def webhook() -> dict:
 
 
 def post(hook: dict, title: str, md: str) -> str:
-    """Send one report to the webhook as plain text. Returns "" when it went, else why it didn't."""
+    """Send one report to the webhook. Returns "" when it went, else why it didn't.
+    The body is JSON with the whole report under "context" (what a Cursor automation's webhook hands its agent) and
+    under "text" (what chat webhooks read), plus "title". `"format": "text"` in the config sends plain text instead."""
     import urllib.error
     import urllib.request
-    req = urllib.request.Request(hook["url"], data=f"{title}\n\n{md}\n".encode(), method="POST",
-                                 headers={"Content-Type": "text/plain; charset=utf-8", "User-Agent": "matthew-studio-kit"})
+    text = f"{title}\n\n{md}\n"
+    if hook.get("format") == "text":
+        data, kind = text.encode(), "text/plain; charset=utf-8"
+    else:
+        data, kind = json.dumps({"title": title, "context": text, "text": text}).encode(), "application/json"
+    req = urllib.request.Request(hook["url"], data=data, method="POST",
+                                 headers={"Content-Type": kind, "User-Agent": "matthew-studio-kit"})
     if hook.get("bearer"):
         req.add_header("Authorization", f"Bearer {hook['bearer']}")
     try:

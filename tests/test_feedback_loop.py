@@ -20,7 +20,7 @@ class Reports(unittest.TestCase):
         with mock.patch.dict(os.environ, {"KIT_REPORT_WEBHOOK": "https://example.invalid/hook", "KIT_REPORT_BEARER": "t"}):
             self.assertEqual(report.webhook(), {"url": "https://example.invalid/hook", "bearer": "t"})
 
-    def test_the_report_is_posted_as_text_with_the_token_in_the_header_only(self):
+    def test_the_report_is_posted_with_the_token_in_the_header_only(self):
         seen = {}
 
         class Answer:
@@ -36,7 +36,12 @@ class Reports(unittest.TestCase):
             self.assertEqual(report.post({"url": "https://example.invalid/hook", "bearer": "abc"}, "kit report: x", "body"), "")
         self.assertEqual(seen["auth"], "Bearer abc")
         self.assertNotIn("abc", seen["body"])
-        self.assertIn("kit report: x", seen["body"])
+        sent = json.loads(seen["body"])                      # a Cursor automation reads "context", a chat webhook "text"
+        self.assertIn("kit report: x", sent["context"])
+        self.assertEqual(sent["context"], sent["text"])
+        with mock.patch("urllib.request.urlopen", fake):
+            report.post({"url": "https://example.invalid/hook", "format": "text"}, "kit report: x", "body")
+        self.assertTrue(seen["body"].startswith("kit report: x"))
 
     def test_job_facts_describe_the_plan_without_his_words(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(report, "KIT", Path(tmp)):

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.6
+
+- Reports to a webhook are sent as JSON with the report under `context` (what a Cursor automation's webhook passes to its agent) and `text`; `"format": "text"` in the webhook settings sends plain text instead.
+
 ## 2.4.5
 
 - **His voice for a faceless video: `bin/kit voice <recording> --name <job>`.** A video built with HyperFrames' own skills (a stick-figure story, an explainer) skipped the kit's voice work, so his raw recording went in with its pauses and dead air. This command runs the recording through the same steps as any kit video and writes `voice.wav` (the only voice the video uses) and `words.json` (every word's time on it).
