@@ -36,6 +36,20 @@ class WordEdges(unittest.TestCase):
         ws = [{"w": "one", "start": 0.5, "end": 1.0}, {"w": "two", "start": 1.0, "end": 1.6}, {"w": "three", "start": 1.6, "end": 2.5}]
         self.assertEqual([tuple(x) for x in edges.refine(ws, db)], [(0.5, 1.0), (1.0, 1.6), (1.6, 2.5)])
 
+    def test_a_word_stretched_back_over_a_pause_sits_on_its_own_sound(self):
+        # "cold" really ends at 1.0; the model ended it at 0.8 and stretched "because" from there over the pause to 2.0
+        db = room(3, [(0.3, 1.0), (1.6, 2.0), (2.0, 2.5)])
+        ws = [{"w": "cold", "start": 0.3, "end": 0.8}, {"w": "because", "start": 0.8, "end": 2.0}, {"w": "you", "start": 2.0, "end": 2.5}]
+        got = edges.refine(ws, db)
+        self.assertAlmostEqual(got[0][1], 1.0, delta=0.03)     # the first word gets its ending back
+        self.assertAlmostEqual(got[1][0], 1.6, delta=0.03)     # the stretched word starts where its sound does
+        self.assertLess(got[1][0], got[1][1])
+
+    def test_a_word_the_model_started_inside_a_silence_starts_at_its_sound(self):
+        db = room(3, [(0.3, 0.9), (1.5, 2.0)])
+        got = edges.refine([{"w": "good", "start": 0.3, "end": 0.9}, {"w": "at", "start": 0.95, "end": 2.0}], db)
+        self.assertAlmostEqual(got[1][0], 1.5, delta=0.03)
+
     def test_silences_are_listed_from_the_sound(self):
         runs = edges.quiet_runs(room(3, [(0.5, 1.2), (2.0, 2.5)]))
         self.assertTrue(any(abs(a - 1.2) < 0.03 and abs(b - 2.0) < 0.03 for a, b in runs))

@@ -16,7 +16,7 @@ import subprocess
 
 import numpy as np
 
-VERSION = 1
+VERSION = 2
 RATE = 16000
 HOP = 80                 # 5 ms
 FWD = 0.30               # how far past the model's end a word may run (seconds)
@@ -24,6 +24,7 @@ BACK = 0.20              # how far before the model's start it may begin
 BRIDGE_END = 0.09        # a quiet stretch this short inside a word's end is a stop's closure, not the end
 BRIDGE_START = 0.05
 MIN_WORD = 0.06          # a word is never shrunk to less than this
+INSIDE_MIN = 0.12        # a silence this long inside one word's time is a pause the model hid there
 MIN_SHRINK = 0.03        # ignore smaller trims: they are within the model's own error
 PER_LETTER = 0.06        # a word the model gave less time than this per letter was squeezed (often to no time at all):
                          # its sound lies before the time it was given, so it may reach that much further back
@@ -53,13 +54,6 @@ def levels(db):
 
 
 QUIET_MIN = 0.08         # silences shorter than this are not listed
-
-
-def still_mask(db, silent):
-    """True where the recording holds nothing but the room. Judged on a 30 ms average, so the room's own flicker
-    neither reads as speech nor breaks a silence in two."""
-    pw = np.convolve(10 ** (db / 10), np.ones(6) / 6, mode="same")
-    return 10 * np.log10(pw + 1e-12) <= silent + 1.0
 
 
 def quiet_runs(db):
@@ -97,10 +91,10 @@ def refine(words, db):
     """New (start, end) for every word. `words`: [{"start", "end", ...}] in time order, the model's times."""
     if db is None or not words:
         return [(float(w["start"]), float(w["end"])) for w in words]
-    loud, silent = levels(db)
+    loud, _ = levels(db)
     n, hop = len(db), HOP / RATE
     fr = lambda t: max(0, min(n, int(round(t / hop))))
-    still = still_mask(db, silent) if silent is not None else None
+    runs = quiet_runs(db)
     out = []
     for i, w in enumerate(words):
         s, e = float(w["start"]), float(w["end"])
@@ -119,12 +113,6 @@ def refine(words, db):
                     break
         if last is not None:
             e2 = min(max(hi, e), (last + 1) * hop)
-        elif still is not None:             # nothing after it: was it stretched over a silence?
-            k = min(n, fr(e)) - 1
-            while k > fr(s + MIN_WORD) and still[k]:
-                k -= 1
-            if e - (k + 1) * hop >= MIN_SHRINK:
-                e2 = (k + 1) * hop
         # the start: back through the sound before it
         first, quiet = None, 0
         for k in range(fr(s) - 1, fr(min(lo, s)) - 1, -1):
@@ -138,13 +126,31 @@ def refine(words, db):
                     break
         if first is not None:
             s2 = max(min(lo, s), first * hop)
-        elif still is not None:
-            k = fr(s)
-            while k < min(n, fr(e2 - MIN_WORD)) and still[k]:
-                k += 1
-            if k * hop - s >= MIN_SHRINK:
-                s2 = k * hop
         out.append([min(s2, e2), max(s2, e2)])
+    # A pause the model put inside a word's time. It stretches words over silences: back over the pause before them
+    # (most often), forward over the pause after them, or right across one. The word is only where its sound is, so
+    # its time is taken off the silence; otherwise, when the pause is cut, the word falls into the cut and is lost
+    # from the captions.
+    for i, (s, e) in enumerate(out):
+        for a, b in runs:
+            if b <= s or a >= e or b - a < QUIET_MIN:
+                continue
+            s, e = out[i]
+            if a <= s + 0.005 and b < e - MIN_WORD:               # the word opens on a silence
+                if b - s >= MIN_SHRINK:
+                    out[i][0] = b
+            elif b >= e - 0.005 and a > s + MIN_WORD:             # it closes on one
+                if e - a >= MIN_SHRINK:
+                    out[i][1] = a
+            elif a > s + 0.005 and b < e - 0.005 and b - a >= INSIDE_MIN:
+                if e - b >= 0.6 * (a - s):                        # the word is the sound after the silence
+                    if i and out[i - 1][1] >= s - 0.03:
+                        out[i - 1][1] = a                         # what came before is the end of the previous word
+                    out[i][0] = b
+                else:                                             # the word is the sound before it
+                    if i + 1 < len(out) and out[i + 1][0] <= e + 0.03:
+                        out[i + 1][0] = b
+                    out[i][1] = a
     for i in range(1, len(out)):            # two words that reached into the same gap meet at its quietest point
         if out[i][0] < out[i - 1][1]:
             a, b = fr(out[i][0]), max(fr(out[i][0]) + 1, fr(out[i - 1][1]))
