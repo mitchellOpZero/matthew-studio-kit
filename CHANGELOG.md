@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.4
+
+- **A word next to a hidden pause no longer drops out of the captions.** 2.4.3 cut pauses the transcript hides inside a word, but the word's time still covered the pause, so the word could fall into the cut and vanish from the captions (its sound was still there). Each word's time now sits on its own sound, off the silence before, after or inside it.
+
 ## 2.4.3
 
 - **Words are no longer cut off, and pauses are cut where the sound really stops.** New plans (`"audio_rev": 2`, written by `bin/kit draft`) take every cut from the recording itself: each word's edges are moved to where the word truly starts and stops (the speech model often ends a word before its last consonant, starts it after its first syllable, or gives it no length at all), and pauses are found where the sound goes quiet, including ones the transcript hides inside a word.
